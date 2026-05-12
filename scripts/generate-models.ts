@@ -31,6 +31,14 @@ const stateValues = [...stateMatch[1].matchAll(/"([^"]+)"/g)].map(
   (m) => m[1],
 );
 
+// --- Extract Provider union values ---
+const providerMatch = src.match(
+  /export\s+type\s+Provider\s*=\s*([^;]+);/,
+);
+const providerValues = providerMatch
+  ? [...providerMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1])
+  : [];
+
 // --- Extract Session interface fields ---
 const sessionMatch = src.match(
   /export\s+interface\s+Session\s*\{([^}]+)\}/,
@@ -73,6 +81,9 @@ function tsTypeToSwift(name: string, tsType: string, optional: boolean): string 
     case "SessionState":
       base = "SessionState";
       break;
+    case "Provider":
+      base = "Provider";
+      break;
     default:
       console.error(`Unknown TypeScript type "${tsType}", defaulting to String`);
       base = "String";
@@ -102,6 +113,16 @@ for (const val of stateValues) {
 }
 lines.push("}");
 lines.push("");
+
+// Provider enum
+if (providerValues.length > 0) {
+  lines.push("enum Provider: String, Codable {");
+  for (const val of providerValues) {
+    lines.push(`    case ${toCamelCase(val)} = "${val}"`);
+  }
+  lines.push("}");
+  lines.push("");
+}
 
 // Session struct
 lines.push("struct Session: Codable, Identifiable {");

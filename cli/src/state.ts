@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync, unlinkSync } from "fs";
-import { hasRunningClaudeProcess, paths } from "./paths.js";
+import { hasRunningToolProcess, paths } from "./paths.js";
 import type { Session } from "./types.js";
 
-// Only used as a last resort for sessions with no PID when no Claude process is found
+// Only used as a last resort for sessions with no PID when no tool process is found
 const STALE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
 
 function isProcessAlive(pid: number): boolean {
@@ -18,17 +18,17 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-// Cache the hasRunningClaudeProcess() result for up to 5 seconds
+// Cache the hasRunningToolProcess() result for up to 5 seconds
 // to avoid running ps on every TUI render (1/sec).
-let _claudeAliveCache: { result: boolean; ts: number } | null = null;
+let _toolAliveCache: { result: boolean; ts: number } | null = null;
 
-function isAnyClaudeAlive(): boolean {
+function isAnyToolAlive(): boolean {
   const now = Date.now();
-  if (_claudeAliveCache && now - _claudeAliveCache.ts < 5000) {
-    return _claudeAliveCache.result;
+  if (_toolAliveCache && now - _toolAliveCache.ts < 5000) {
+    return _toolAliveCache.result;
   }
-  const result = hasRunningClaudeProcess();
-  _claudeAliveCache = { result, ts: now };
+  const result = hasRunningToolProcess();
+  _toolAliveCache = { result, ts: now };
   return result;
 }
 
@@ -47,7 +47,7 @@ export function deriveSessions(): Session[] {
       const session: Session = JSON.parse(content);
 
       // If we have a PID, check if the process is still alive.
-      // Alive → show, dead → clean up immediately.
+      // Alive -> show, dead -> clean up immediately.
       if (session.pid) {
         if (!isProcessAlive(session.pid)) {
 
@@ -62,7 +62,7 @@ export function deriveSessions(): Session[] {
         continue;
       }
 
-      // No PID: defer cleanup decision until we check for running Claude processes.
+      // No PID: defer cleanup decision until we check for running tool processes.
       const lastUpdate = new Date(session.lastUpdatedAt).getTime();
       if (now - lastUpdate > STALE_TIMEOUT_MS) {
         pendingCleanup.push(sessionId);
@@ -75,11 +75,11 @@ export function deriveSessions(): Session[] {
   }
 
   // For sessions without PIDs that exceeded the stale timeout,
-  // only clean up if no Claude Code process is running at all.
+  // only clean up if no AI coding tool process is running at all.
   // This prevents removing sessions where PID detection failed.
   if (pendingCleanup.length > 0) {
-    if (isAnyClaudeAlive()) {
-      // Claude is running — keep these sessions, don't delete
+    if (isAnyToolAlive()) {
+      // A tool process is running -- keep these sessions, don't delete
       for (const sessionId of pendingCleanup) {
         try {
           const content = readFileSync(paths.sessionFile(sessionId), "utf-8");
@@ -89,7 +89,7 @@ export function deriveSessions(): Session[] {
         }
       }
     } else {
-      // No Claude processes found — safe to clean up
+      // No tool processes found -- safe to clean up
       for (const sessionId of pendingCleanup) {
         try {
           unlinkSync(paths.sessionFile(sessionId));

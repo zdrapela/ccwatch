@@ -177,7 +177,7 @@ export async function startTui(): Promise<void> {
 
     if (sessions.length === 0) {
       output += `  ${DIM}No active sessions${RESET}\n`;
-      output += `  ${DIM}Start Claude Code in another terminal to see it here.${RESET}\n`;
+      output += `  ${DIM}Start Claude Code or OpenCode in another terminal to see it here.${RESET}\n`;
       output += `\n  ${DIM}Run 'ccwatch install' to set up hooks if you haven't already.${RESET}\n`;
     } else {
       for (const session of sessions) {

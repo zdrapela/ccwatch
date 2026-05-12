@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from "./cli.js";
 
-const { subcommand } = parseArgs(process.argv.slice(2));
+const { subcommand, provider } = parseArgs(process.argv.slice(2));
 
 switch (subcommand) {
   case "hook": {
@@ -16,7 +16,7 @@ switch (subcommand) {
   }
   case "install": {
     const { installCommand } = await import("./install.js");
-    await installCommand();
+    await installCommand(provider);
     break;
   }
   case "tui": {

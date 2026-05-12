@@ -1,7 +1,10 @@
 export type SessionState = "working" | "waiting:permission" | "waiting:input";
 
+export type Provider = "claude" | "opencode" | "unknown";
+
 export interface Session {
   sessionId: string;
+  provider?: Provider;
   cwd: string;
   state: SessionState;
   currentTool?: string;

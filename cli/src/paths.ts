@@ -5,12 +5,19 @@ import { join } from "path";
 const CONFIG_DIR = join(homedir(), ".config", "ccwatch");
 const SESSIONS_DIR = join(CONFIG_DIR, "sessions");
 const CLAUDE_SETTINGS = join(homedir(), ".claude", "settings.json");
+const OPENCODE_PLUGINS_DIR = join(homedir(), ".config", "opencode", "plugins");
 
 export const paths = {
   configDir: CONFIG_DIR,
   sessionsDir: SESSIONS_DIR,
-  claudeSettings: CLAUDE_SETTINGS,
   sessionFile: (sessionId: string) => join(SESSIONS_DIR, `${sessionId}.json`),
+  claude: {
+    settings: CLAUDE_SETTINGS,
+  },
+  opencode: {
+    pluginsDir: OPENCODE_PLUGINS_DIR,
+    pluginFile: join(OPENCODE_PLUGINS_DIR, "ccwatch-plugin.js"),
+  },
 };
 
 export async function ensureDirs(): Promise<void> {
@@ -20,23 +27,24 @@ export async function ensureDirs(): Promise<void> {
 }
 
 /**
- * Check whether a command line (ps args=) looks like a Claude Code process.
- * Matches "claude" as a whole word (case-insensitive) in the full command line,
- * which catches: /path/to/claude, node .../claude-code/..., Claude.app, etc.
+ * Check whether a command line (ps args=) looks like an AI coding tool process.
+ * Matches "claude" or "opencode" as a whole word (case-insensitive) in the full
+ * command line, which catches: /path/to/claude, node .../claude-code/...,
+ * Claude.app, opencode, etc.
  * Excludes ccwatch's own processes.
  */
-function isClaudeArgs(args: string): boolean {
-  return /\bclaude\b/i.test(args) && !/\bccwatch\b/i.test(args);
+function isToolArgs(args: string): boolean {
+  return /\b(claude|opencode)\b/i.test(args) && !/\bccwatch\b/i.test(args);
 }
 
 /**
- * Get the Claude Code process PID by walking up the process tree
- * looking for a process whose full command line contains "claude".
+ * Get the parent AI coding tool process PID by walking up the process tree
+ * looking for a process whose full command line contains "claude" or "opencode".
  * Uses args= (full command line) instead of comm= (executable name only)
- * because Claude Code may run as a Node.js script where comm= shows "node".
+ * because the tool may run as a Node.js script where comm= shows "node".
  * Falls back to grandparent PID if detection fails.
  */
-export function getClaudeCodePid(): number | undefined {
+export function getParentToolPid(): number | undefined {
   try {
     let pid = process.ppid;
     for (let i = 0; i < 10; i++) {
@@ -46,7 +54,7 @@ export function getClaudeCodePid(): number | undefined {
         stdio: ["pipe", "pipe", "pipe"],
       }).trim();
 
-      if (isClaudeArgs(args)) {
+      if (isToolArgs(args)) {
         return pid;
       }
 
@@ -79,17 +87,18 @@ export function getClaudeCodePid(): number | undefined {
 }
 
 /**
- * Check if ANY Claude Code process is currently running on the system.
+ * Check if ANY AI coding tool process (Claude Code or OpenCode) is currently
+ * running on the system.
  * Used as a safety net before cleaning up sessions that have no PID.
  */
-export function hasRunningClaudeProcess(): boolean {
+export function hasRunningToolProcess(): boolean {
   try {
     const output = execFileSync("ps", ["-eo", "args="], {
       encoding: "utf-8",
       timeout: 3000,
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
-    return output.split("\n").some(line => isClaudeArgs(line));
+    return output.split("\n").some(line => isToolArgs(line));
   } catch {
     return false;
   }

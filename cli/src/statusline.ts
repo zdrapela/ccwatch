@@ -1,7 +1,7 @@
 import { execFileSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { basename } from "path";
-import { ensureDirs, getClaudeCodePid, paths } from "./paths.js";
+import { ensureDirs, getParentToolPid, paths } from "./paths.js";
 import type { Session, StatusInput } from "./types.js";
 import { readStdin } from "./utils.js";
 
@@ -89,7 +89,8 @@ export async function statusCommand(): Promise<void> {
   session.costUsd = costUsd;
   session.contextPct = usedPct;
   if (tokensUsed != null) session.contextTokens = tokensUsed;
-  session.pid = getClaudeCodePid();
+  session.provider ??= "claude";
+  session.pid = getParentToolPid();
   session.lastUpdatedAt = new Date().toISOString();
 
   writeFileSync(sessionPath, JSON.stringify(session) + "\n");

@@ -22,7 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let button = statusItem.button {
             button.image = NSImage(
                 systemSymbolName: "text.line.first.and.arrowtriangle.forward",
-                accessibilityDescription: "Claude Monitor"
+                accessibilityDescription: "Session Monitor"
             )
         }
 

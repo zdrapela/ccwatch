@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "fs";
-import { ensureDirs, getClaudeCodePid, paths } from "./paths.js";
+import { ensureDirs, getParentToolPid, paths } from "./paths.js";
 import type { HookInput, Session, SessionState } from "./types.js";
 import { readStdin } from "./utils.js";
 
@@ -64,6 +64,7 @@ export async function hookCommand(): Promise<void> {
     const existing = readSession(parsed.session_id);
     const session: Session = existing ?? {
       sessionId: parsed.session_id,
+      provider: "claude",
       cwd: parsed.cwd ?? "",
       state: "working",
       costUsd: 0,
@@ -71,9 +72,10 @@ export async function hookCommand(): Promise<void> {
       lastUpdatedAt: now,
     };
     session.state = "working";
+    session.provider ??= "claude";
     session.startedAt ??= now;
     session.lastUpdatedAt = now;
-    session.pid = getClaudeCodePid();
+    session.pid = getParentToolPid();
     if (parsed.cwd) session.cwd = parsed.cwd;
     session.currentTool = undefined;
     writeSession(session);
@@ -99,6 +101,7 @@ export async function hookCommand(): Promise<void> {
   const existing = readSession(parsed.session_id);
   const session: Session = existing ?? {
     sessionId: parsed.session_id,
+    provider: "claude",
     cwd: parsed.cwd ?? "",
     state,
     costUsd: 0,
@@ -107,8 +110,9 @@ export async function hookCommand(): Promise<void> {
   };
 
   session.state = state;
+  session.provider ??= "claude";
   session.lastUpdatedAt = new Date().toISOString();
-  session.pid = getClaudeCodePid();
+  session.pid = getParentToolPid();
   if (parsed.cwd) session.cwd = parsed.cwd;
 
   // Capture currentTool from PreToolUse, clear on other events
