@@ -193,12 +193,14 @@ async function fetchModelLimits(client) {
   modelLimitsFetched = true;
   try {
     const resp = await client.provider.list();
-    if (resp.data) {
-      for (const provider of resp.data) {
-        for (const model of (provider.models || [])) {
-          if (model.id && model.limit?.context) {
-            modelContextLimits[model.id] = model.limit.context;
-          }
+    const providers = resp.data?.all || resp.data || [];
+    for (const provider of providers) {
+      const models = provider.models || {};
+      // models can be an object keyed by ID or an array
+      const modelList = Array.isArray(models) ? models : Object.values(models);
+      for (const model of modelList) {
+        if (model.id && model.limit?.context) {
+          modelContextLimits[model.id] = model.limit.context;
         }
       }
     }
