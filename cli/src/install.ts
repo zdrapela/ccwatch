@@ -155,6 +155,8 @@ function deleteSession(sessionId) {
 
 // Track active sessions for this OpenCode instance
 const activeSessions = new Map();
+// Track per-message cost to compute session total (messageId -> cost)
+const messageCosts = new Map();
 
 function ensureSession(sessionId, directory, now) {
   if (activeSessions.has(sessionId)) return readSession(sessionId);
@@ -269,6 +271,31 @@ export const CCWatchPlugin = async ({ project, directory }) => {
               existing.lastUpdatedAt = now;
               writeSession(existing);
             }
+          }
+          break;
+        }
+
+        case "message.updated": {
+          const msgInfo = event.properties?.info;
+          if (!sessionId || !msgInfo) break;
+          // Track cost from assistant messages
+          if (msgInfo.role === "assistant" && msgInfo.cost > 0 && msgInfo.id) {
+            messageCosts.set(msgInfo.id, msgInfo.cost);
+            const existing = readSession(sessionId);
+            if (!existing) break;
+            // Sum all tracked message costs for this session
+            let totalCost = 0;
+            for (const c of messageCosts.values()) totalCost += c;
+            existing.costUsd = Math.round(totalCost * 10000) / 10000;
+            // Extract token info if available
+            if (msgInfo.tokens) {
+              const t = msgInfo.tokens;
+              const totalTokens = (t.input || 0) + (t.output || 0) + (t.reasoning || 0)
+                + (t.cache?.read || 0) + (t.cache?.write || 0);
+              if (totalTokens > 0) existing.contextTokens = totalTokens;
+            }
+            existing.lastUpdatedAt = now;
+            writeSession(existing);
           }
           break;
         }
