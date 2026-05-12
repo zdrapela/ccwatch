@@ -157,6 +157,8 @@ function deleteSession(sessionId) {
 const activeSessions = new Map();
 // Track per-message cost to compute session total (messageId -> cost)
 const messageCosts = new Map();
+// Model context window sizes (modelId -> context limit)
+let modelContextLimits = {};
 
 function ensureSession(sessionId, directory, now) {
   if (activeSessions.has(sessionId)) return readSession(sessionId);
@@ -183,8 +185,23 @@ function ensureSession(sessionId, directory, now) {
   return session;
 }
 
-export const CCWatchPlugin = async ({ project, directory }) => {
+export const CCWatchPlugin = async ({ project, directory, client }) => {
   ensureSessionsDir();
+
+  // Fetch model context limits from the provider API at startup
+  try {
+    const resp = await client.provider.list();
+    if (resp.data) {
+      for (const provider of resp.data) {
+        for (const model of (provider.models || [])) {
+          if (model.id && model.limit?.context) {
+            modelContextLimits[model.id] = model.limit.context;
+          }
+        }
+      }
+    }
+  } catch {}
+
 
   return {
     event: async ({ event }) => {
@@ -324,6 +341,24 @@ export const CCWatchPlugin = async ({ project, directory }) => {
             }
             existing.lastUpdatedAt = now;
             writeSession(existing);
+          }
+          // Compute context % from step-finish token data
+          if (part.type === "step-finish" && part.tokens) {
+            const totalUsed = part.tokens.total
+              || (part.tokens.input || 0) + (part.tokens.output || 0)
+              + (part.tokens.reasoning || 0)
+              + (part.tokens.cache?.read || 0) + (part.tokens.cache?.write || 0);
+            if (totalUsed > 0) {
+              existing.contextTokens = totalUsed;
+              // Look up context window size for the model
+              const modelId = existing.model;
+              const contextLimit = modelId && modelContextLimits[modelId];
+              if (contextLimit > 0) {
+                existing.contextPct = Math.min(100, Math.round(totalUsed / contextLimit * 100));
+              }
+              existing.lastUpdatedAt = now;
+              writeSession(existing);
+            }
           }
           break;
         }
