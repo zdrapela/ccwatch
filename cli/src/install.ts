@@ -207,7 +207,9 @@ async function fetchModelLimits(client) {
   } catch {}
 }
 
-export const CCWatchPlugin = async ({ project, directory, client }) => {
+export const CCWatchPlugin = async ({ project, directory, worktree, client }) => {
+  // Prefer worktree path over directory to distinguish git worktrees
+  const cwd = worktree || directory;
   ensureSessionsDir();
 
 
@@ -221,7 +223,7 @@ export const CCWatchPlugin = async ({ project, directory, client }) => {
         case "session.created":
         case "session.updated": {
           if (!sessionId) break;
-          const session = ensureSession(sessionId, directory, now);
+          const session = ensureSession(sessionId, cwd, now);
           if (!session) break;
           // Extract cost, tokens, and model info from session info.
           // session.updated on the bus carries the full session snapshot
@@ -230,7 +232,6 @@ export const CCWatchPlugin = async ({ project, directory, client }) => {
           if (info) {
             if (info.cost > 0) session.costUsd = info.cost;
             if (info.model?.id) session.model = info.model.id;
-            if (info.directory) session.cwd = info.directory;
             if (info.title) session.title = info.title;
             if (info.tokens) {
               const t = info.tokens;
@@ -253,7 +254,7 @@ export const CCWatchPlugin = async ({ project, directory, client }) => {
 
         case "session.idle": {
           if (!sessionId) break;
-          const existing = ensureSession(sessionId, directory, now);
+          const existing = ensureSession(sessionId, cwd, now);
           if (!existing) break;
           existing.state = "waiting:input";
           existing.currentTool = undefined;
@@ -275,7 +276,7 @@ export const CCWatchPlugin = async ({ project, directory, client }) => {
 
         case "session.status": {
           if (!sessionId) break;
-          const existing = ensureSession(sessionId, directory, now);
+          const existing = ensureSession(sessionId, cwd, now);
           if (!existing) break;
           const status = event.properties?.status;
           // OpenCode uses "busy" (not "running") for active state
@@ -291,7 +292,7 @@ export const CCWatchPlugin = async ({ project, directory, client }) => {
 
         case "permission.asked": {
           if (sessionId) {
-            const existing = ensureSession(sessionId, directory, now);
+            const existing = ensureSession(sessionId, cwd, now);
             if (existing) {
               existing.state = "waiting:permission";
               existing.lastUpdatedAt = now;
