@@ -160,7 +160,12 @@ function ensureSession(sessionId, directory, now) {
   if (activeSessions.has(sessionId)) return readSession(sessionId);
   activeSessions.set(sessionId, true);
   const existing = readSession(sessionId);
-  if (existing) return existing;
+  if (existing) {
+    // Update PID to current process (handles restarts where the old PID is dead)
+    existing.pid = process.pid;
+    writeSession(existing);
+    return existing;
+  }
   const session = {
     sessionId,
     provider: "opencode",
