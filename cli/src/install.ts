@@ -156,35 +156,55 @@ function deleteSession(sessionId) {
 // Track active sessions for this OpenCode instance
 const activeSessions = new Map();
 
+function ensureSession(sessionId, directory, now) {
+  if (activeSessions.has(sessionId)) return readSession(sessionId);
+  activeSessions.set(sessionId, true);
+  const existing = readSession(sessionId);
+  if (existing) return existing;
+  const session = {
+    sessionId,
+    provider: "opencode",
+    cwd: directory || "",
+    state: "working",
+    costUsd: 0,
+    contextPct: 0,
+    startedAt: now,
+    lastUpdatedAt: now,
+    pid: process.pid,
+  };
+  writeSession(session);
+  return session;
+}
+
 export const CCWatchPlugin = async ({ project, directory }) => {
   ensureSessionsDir();
 
   return {
     event: async ({ event }) => {
       const now = new Date().toISOString();
+      // OpenCode events use top-level sessionID, not nested session.id
+      const sessionId = event.properties?.sessionID;
 
       switch (event.type) {
-        case "session.created": {
-          const sessionId = event.properties?.session?.id;
+        case "session.created":
+        case "session.updated": {
           if (!sessionId) break;
-          activeSessions.set(sessionId, true);
-          const session = {
-            sessionId,
-            provider: "opencode",
-            cwd: directory || "",
-            state: "working",
-            costUsd: 0,
-            contextPct: 0,
-            startedAt: now,
-            lastUpdatedAt: now,
-            pid: process.pid,
-          };
+          const session = ensureSession(sessionId, directory, now);
+          if (!session) break;
+          // Extract cost and model info from session.updated info
+          const info = event.properties?.info;
+          if (info) {
+            if (info.cost != null) session.costUsd = info.cost;
+            if (info.model?.id) session.model = info.model.id;
+            if (info.directory) session.cwd = info.directory;
+            if (info.title) session.title = info.title;
+          }
+          session.lastUpdatedAt = now;
           writeSession(session);
           break;
         }
 
         case "session.deleted": {
-          const sessionId = event.properties?.session?.id;
           if (!sessionId) break;
           activeSessions.delete(sessionId);
           deleteSession(sessionId);
@@ -192,9 +212,8 @@ export const CCWatchPlugin = async ({ project, directory }) => {
         }
 
         case "session.idle": {
-          const sessionId = event.properties?.session?.id;
           if (!sessionId) break;
-          const existing = readSession(sessionId);
+          const existing = ensureSession(sessionId, directory, now);
           if (!existing) break;
           existing.state = "waiting:input";
           existing.currentTool = undefined;
@@ -204,7 +223,6 @@ export const CCWatchPlugin = async ({ project, directory }) => {
         }
 
         case "session.error": {
-          const sessionId = event.properties?.session?.id;
           if (!sessionId) break;
           const existing = readSession(sessionId);
           if (!existing) break;
@@ -216,12 +234,12 @@ export const CCWatchPlugin = async ({ project, directory }) => {
         }
 
         case "session.status": {
-          const sessionId = event.properties?.session?.id;
           if (!sessionId) break;
-          const existing = readSession(sessionId);
+          const existing = ensureSession(sessionId, directory, now);
           if (!existing) break;
           const status = event.properties?.status;
-          if (status?.type === "running") {
+          // OpenCode uses "busy" (not "running") for active state
+          if (status?.type === "busy") {
             existing.state = "working";
           } else if (status?.type === "idle") {
             existing.state = "waiting:input";
@@ -232,22 +250,21 @@ export const CCWatchPlugin = async ({ project, directory }) => {
         }
 
         case "permission.asked": {
-          // Find the most recently updated active session
-          for (const sessionId of activeSessions.keys()) {
-            const existing = readSession(sessionId);
-            if (!existing) continue;
-            existing.state = "waiting:permission";
-            existing.lastUpdatedAt = now;
-            writeSession(existing);
+          if (sessionId) {
+            const existing = ensureSession(sessionId, directory, now);
+            if (existing) {
+              existing.state = "waiting:permission";
+              existing.lastUpdatedAt = now;
+              writeSession(existing);
+            }
           }
           break;
         }
 
         case "permission.replied": {
-          for (const sessionId of activeSessions.keys()) {
+          if (sessionId) {
             const existing = readSession(sessionId);
-            if (!existing) continue;
-            if (existing.state === "waiting:permission") {
+            if (existing && existing.state === "waiting:permission") {
               existing.state = "working";
               existing.lastUpdatedAt = now;
               writeSession(existing);
@@ -258,22 +275,18 @@ export const CCWatchPlugin = async ({ project, directory }) => {
 
         case "message.part.updated": {
           const part = event.properties?.part;
-          if (!part) break;
-          // Update model info from message parts when available
-          for (const sessionId of activeSessions.keys()) {
-            const existing = readSession(sessionId);
-            if (!existing) continue;
-            if (part.type === "tool" && part.tool) {
-              if (part.state?.status === "running" || !part.time?.end) {
-                existing.state = "working";
-                existing.currentTool = part.tool;
-              } else if (part.state?.status === "completed") {
-                existing.currentTool = undefined;
-              }
-              existing.lastUpdatedAt = now;
-              writeSession(existing);
+          if (!part || !sessionId) break;
+          const existing = readSession(sessionId);
+          if (!existing) break;
+          if (part.type === "tool" && part.tool) {
+            if (part.state?.status === "running" || part.state?.status === "pending") {
+              existing.state = "working";
+              existing.currentTool = part.tool;
+            } else if (part.state?.status === "completed") {
+              existing.currentTool = undefined;
             }
-            break; // only update first active session
+            existing.lastUpdatedAt = now;
+            writeSession(existing);
           }
           break;
         }
@@ -291,7 +304,7 @@ export const CCWatchPlugin = async ({ project, directory }) => {
         existing.currentTool = detail ? toolName + " " + detail : toolName;
         existing.lastUpdatedAt = now;
         writeSession(existing);
-        break; // only update first active session
+        break;
       }
     },
 
