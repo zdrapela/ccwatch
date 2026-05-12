@@ -185,10 +185,12 @@ function ensureSession(sessionId, directory, now) {
   return session;
 }
 
-export const CCWatchPlugin = async ({ project, directory, client }) => {
-  ensureSessionsDir();
-
-  // Fetch model context limits from the provider API at startup
+// Lazily fetch model context limits on first use (not at startup,
+// which would deadlock because the server isn't ready during plugin init)
+let modelLimitsFetched = false;
+async function fetchModelLimits(client) {
+  if (modelLimitsFetched) return;
+  modelLimitsFetched = true;
   try {
     const resp = await client.provider.list();
     if (resp.data) {
@@ -201,6 +203,10 @@ export const CCWatchPlugin = async ({ project, directory, client }) => {
       }
     }
   } catch {}
+}
+
+export const CCWatchPlugin = async ({ project, directory, client }) => {
+  ensureSessionsDir();
 
 
   return {
@@ -344,6 +350,7 @@ export const CCWatchPlugin = async ({ project, directory, client }) => {
           }
           // Compute context % from step-finish token data
           if (part.type === "step-finish" && part.tokens) {
+            fetchModelLimits(client);
             const totalUsed = part.tokens.total
               || (part.tokens.input || 0) + (part.tokens.output || 0)
               + (part.tokens.reasoning || 0)
