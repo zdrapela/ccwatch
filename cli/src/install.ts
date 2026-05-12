@@ -193,13 +193,21 @@ export const CCWatchPlugin = async ({ project, directory }) => {
           if (!sessionId) break;
           const session = ensureSession(sessionId, directory, now);
           if (!session) break;
-          // Extract cost and model info from session.updated info
+          // Extract cost, tokens, and model info from session info.
+          // session.updated on the bus carries the full session snapshot
+          // from the DB, so info.cost is the authoritative cumulative total.
           const info = event.properties?.info;
           if (info) {
-            if (info.cost != null) session.costUsd = info.cost;
+            if (info.cost > 0) session.costUsd = info.cost;
             if (info.model?.id) session.model = info.model.id;
             if (info.directory) session.cwd = info.directory;
             if (info.title) session.title = info.title;
+            if (info.tokens) {
+              const t = info.tokens;
+              const totalTokens = (t.input || 0) + (t.output || 0) + (t.reasoning || 0)
+                + (t.cache?.read || 0) + (t.cache?.write || 0);
+              if (totalTokens > 0) session.contextTokens = totalTokens;
+            }
           }
           session.lastUpdatedAt = now;
           writeSession(session);
