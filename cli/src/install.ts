@@ -220,28 +220,51 @@ export const CCWatchPlugin = async ({ project, directory, worktree, client }) =>
       const sessionId = event.properties?.sessionID;
 
       switch (event.type) {
-        case "session.created":
+        case "session.status": {
+          if (!sessionId) break;
+          const status = event.properties?.status;
+          // Only create session file when session becomes busy (active use)
+          if (status?.type === "busy") {
+            const session = ensureSession(sessionId, cwd, now);
+            if (!session) break;
+            session.state = "working";
+            session.lastUpdatedAt = now;
+            writeSession(session);
+          } else if (status?.type === "idle") {
+            // Session went idle — remove from ccwatch
+            activeSessions.delete(sessionId);
+            deleteSession(sessionId);
+          }
+          break;
+        }
+
+        case "session.created": {
+          // New session created — track it
+          if (!sessionId) break;
+          ensureSession(sessionId, cwd, now);
+          break;
+        }
+
         case "session.updated": {
           if (!sessionId) break;
-          const session = ensureSession(sessionId, cwd, now);
-          if (!session) break;
-          // Extract cost, tokens, and model info from session info.
-          // session.updated on the bus carries the full session snapshot
-          // from the DB, so info.cost is the authoritative cumulative total.
+          // Only update existing tracked sessions, don't create new ones
+          // (session.updated fires for all DB sessions, not just active ones)
+          const existing = readSession(sessionId);
+          if (!existing) break;
           const info = event.properties?.info;
           if (info) {
-            if (info.cost > 0) session.costUsd = info.cost;
-            if (info.model?.id) session.model = info.model.id;
-            if (info.title) session.title = info.title;
+            if (info.cost > 0) existing.costUsd = info.cost;
+            if (info.model?.id) existing.model = info.model.id;
+            if (info.title) existing.title = info.title;
             if (info.tokens) {
               const t = info.tokens;
               const totalTokens = (t.input || 0) + (t.output || 0) + (t.reasoning || 0)
                 + (t.cache?.read || 0) + (t.cache?.write || 0);
-              if (totalTokens > 0) session.contextTokens = totalTokens;
+              if (totalTokens > 0) existing.contextTokens = totalTokens;
             }
           }
-          session.lastUpdatedAt = now;
-          writeSession(session);
+          existing.lastUpdatedAt = now;
+          writeSession(existing);
           break;
         }
 
@@ -253,13 +276,10 @@ export const CCWatchPlugin = async ({ project, directory, worktree, client }) =>
         }
 
         case "session.idle": {
+          // Session went idle — remove from ccwatch
           if (!sessionId) break;
-          const existing = ensureSession(sessionId, cwd, now);
-          if (!existing) break;
-          existing.state = "waiting:input";
-          existing.currentTool = undefined;
-          existing.lastUpdatedAt = now;
-          writeSession(existing);
+          activeSessions.delete(sessionId);
+          deleteSession(sessionId);
           break;
         }
 
@@ -274,25 +294,9 @@ export const CCWatchPlugin = async ({ project, directory, worktree, client }) =>
           break;
         }
 
-        case "session.status": {
-          if (!sessionId) break;
-          const existing = ensureSession(sessionId, cwd, now);
-          if (!existing) break;
-          const status = event.properties?.status;
-          // OpenCode uses "busy" (not "running") for active state
-          if (status?.type === "busy") {
-            existing.state = "working";
-          } else if (status?.type === "idle") {
-            existing.state = "waiting:input";
-          }
-          existing.lastUpdatedAt = now;
-          writeSession(existing);
-          break;
-        }
-
         case "permission.asked": {
           if (sessionId) {
-            const existing = ensureSession(sessionId, cwd, now);
+            const existing = readSession(sessionId);
             if (existing) {
               existing.state = "waiting:permission";
               existing.lastUpdatedAt = now;
