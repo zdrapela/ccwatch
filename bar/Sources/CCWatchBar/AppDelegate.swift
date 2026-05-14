@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var tickerController: TickerController!
     private var cornerMenuItems: [PanelCorner: NSMenuItem] = [:]
     private var moveMenuItem: NSMenuItem!
+    private var opacitySlider: NSSlider!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -61,6 +62,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         positionSubmenu.submenu = positionMenu
         menu.addItem(positionSubmenu)
 
+        // Opacity slider
+        let opacityMenu = NSMenu()
+
+        let sliderItem = NSMenuItem()
+        let sliderView = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 30))
+
+        let label = NSTextField(labelWithString: "Opacity")
+        label.font = NSFont.systemFont(ofSize: 11)
+        label.textColor = .secondaryLabelColor
+        label.frame = NSRect(x: 12, y: 6, width: 50, height: 18)
+        sliderView.addSubview(label)
+
+        opacitySlider = NSSlider(value: 1.0, minValue: 0.2, maxValue: 1.0, target: self, action: #selector(opacityChanged(_:)))
+        opacitySlider.frame = NSRect(x: 62, y: 6, width: 124, height: 18)
+        opacitySlider.isContinuous = true
+        sliderView.addSubview(opacitySlider)
+
+        sliderItem.view = sliderView
+        opacityMenu.addItem(sliderItem)
+
+        let opacitySubmenu = NSMenuItem(title: "Opacity", action: nil, keyEquivalent: "")
+        opacitySubmenu.submenu = opacityMenu
+        menu.addItem(opacitySubmenu)
+
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
@@ -84,6 +109,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         overlayWindow.onPositionChanged = { [weak self] in
             self?.updateCornerCheckmarks()
         }
+
+        // Restore saved opacity (default 1.0)
+        let savedOpacity = UserDefaults.standard.object(forKey: "panelOpacity") != nil
+            ? UserDefaults.standard.double(forKey: "panelOpacity")
+            : 1.0
+        overlayWindow.alphaValue = CGFloat(savedOpacity)
 
         let visible = UserDefaults.standard.object(forKey: "barVisible") == nil
             ? true
@@ -110,6 +141,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if overlayWindow.isInMoveMode {
             overlayWindow.exitMoveMode()
         }
+        // Sync opacity slider with current window value
+        opacitySlider?.doubleValue = Double(overlayWindow.alphaValue)
     }
 
     // MARK: - Menu Actions
@@ -152,6 +185,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             moveMenuItem?.title = "Custom Position…"
         }
+    }
+
+    @objc private func opacityChanged(_ sender: NSSlider) {
+        let value = CGFloat(sender.doubleValue)
+        overlayWindow.alphaValue = value
+        UserDefaults.standard.set(sender.doubleValue, forKey: "panelOpacity")
     }
 
     @objc private func quitApp() {
