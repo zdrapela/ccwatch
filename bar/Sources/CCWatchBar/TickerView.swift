@@ -68,7 +68,7 @@ struct TickerView {
         return NSAttributedString(
             string: project,
             attributes: [
-                .foregroundColor: NSColor.black.withAlphaComponent(0.8),
+                .foregroundColor: NSColor.labelColor,
                 .font: NSFont.systemFont(ofSize: 12, weight: .bold),
             ]
         )
@@ -96,7 +96,6 @@ struct TickerView {
             attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]
         ))
 
-        let dimBlack = NSColor.black.withAlphaComponent(0.6)
         let font = NSFont.systemFont(ofSize: 11, weight: .regular)
         let sep = " \u{00B7} "
 
@@ -109,7 +108,7 @@ struct TickerView {
 
         result.append(NSAttributedString(
             string: parts.joined(separator: sep),
-            attributes: [.foregroundColor: dimBlack, .font: font]
+            attributes: [.foregroundColor: NSColor.secondaryLabelColor, .font: font]
         ))
 
         return result
@@ -117,7 +116,6 @@ struct TickerView {
 
     // Session line 2: tool/status detail
     static func sessionDetailLine(_ session: Session) -> NSAttributedString {
-        let dimBlack = NSColor.black.withAlphaComponent(0.45)
         let font = NSFont.systemFont(ofSize: 10, weight: .regular)
 
         let detail: String
@@ -133,7 +131,7 @@ struct TickerView {
 
         return NSAttributedString(
             string: detail,
-            attributes: [.foregroundColor: dimBlack, .font: font]
+            attributes: [.foregroundColor: NSColor.tertiaryLabelColor, .font: font]
         )
     }
 

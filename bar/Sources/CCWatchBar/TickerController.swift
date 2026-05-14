@@ -40,7 +40,7 @@ final class TickerController {
             field.attributedStringValue = NSAttributedString(
                 string: "No active sessions",
                 attributes: [
-                    .foregroundColor: NSColor.black.withAlphaComponent(0.4),
+                    .foregroundColor: NSColor.tertiaryLabelColor,
                     .font: NSFont.systemFont(ofSize: 12, weight: .medium),
                 ]
             )
@@ -95,7 +95,7 @@ final class TickerController {
                     height: 1
                 ))
                 sep.wantsLayer = true
-                sep.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.1).cgColor
+                sep.layer?.backgroundColor = NSColor.separatorColor.cgColor
                 container.addSubview(sep)
                 subviews.append(sep)
                 y -= TickerView.groupSpacing / 2
