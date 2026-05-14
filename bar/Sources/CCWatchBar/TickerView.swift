@@ -74,16 +74,27 @@ struct TickerView {
         )
     }
 
-    // Session line 1: stateIcon providerIcon  model · cost · ctx%
+    // Session line 1: stateIcon providerLogo  model · cost · ctx%
     static func sessionLine(_ session: Session) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let icon = stateIcon(session.state)
-        let pIcon = providerIcon(session.provider)
 
         result.append(NSAttributedString(
-            string: "\(icon)\(pIcon) ",
+            string: "\(icon) ",
             attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]
         ))
+
+        // Provider logo image
+        if let logo = providerImage(session.provider) {
+            let size: CGFloat = 13
+            logo.size = NSSize(width: size, height: size)
+            let attachment = NSTextAttachment()
+            attachment.image = logo
+            // Vertically center the image with the text baseline
+            attachment.bounds = CGRect(x: 0, y: -2, width: size, height: size)
+            result.append(NSAttributedString(attachment: attachment))
+            result.append(NSAttributedString(string: " "))
+        }
 
         let dimBlack = NSColor.black.withAlphaComponent(0.6)
         let font = NSFont.systemFont(ofSize: 11, weight: .regular)
@@ -134,12 +145,17 @@ struct TickerView {
         }
     }
 
-    private static func providerIcon(_ provider: Provider?) -> String {
+    private static func providerImage(_ provider: Provider?) -> NSImage? {
+        let name: String
         switch provider {
-        case .claude: return "🟠"
-        case .opencode: return "🟣"
-        default: return "⚪"
+        case .claude: name = "claude"
+        case .opencode: name = "opencode"
+        default: return nil
         }
+        guard let url = Bundle.module.url(forResource: name, withExtension: "png", subdirectory: "Resources") else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
     }
 
     private static func stateIcon(_ state: SessionState) -> String {

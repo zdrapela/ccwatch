@@ -8,7 +8,8 @@ let package = Package(
         .executableTarget(
             name: "CCWatchBar",
             path: "Sources/CCWatchBar",
-            exclude: ["Info.plist"]
+            exclude: ["Info.plist"],
+            resources: [.copy("Resources")]
         )
     ]
 )
