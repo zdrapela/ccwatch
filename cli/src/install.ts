@@ -231,9 +231,14 @@ export const CCWatchPlugin = async ({ project, directory, worktree, client }) =>
             session.lastUpdatedAt = now;
             writeSession(session);
           } else if (status?.type === "idle") {
-            // Session went idle — remove from ccwatch
-            activeSessions.delete(sessionId);
-            deleteSession(sessionId);
+            // Session went idle — show as waiting for input (like Claude Code's Stop event)
+            const idle = readSession(sessionId);
+            if (idle) {
+              idle.state = "waiting:input";
+              idle.currentTool = undefined;
+              idle.lastUpdatedAt = now;
+              writeSession(idle);
+            }
           }
           break;
         }
@@ -276,10 +281,14 @@ export const CCWatchPlugin = async ({ project, directory, worktree, client }) =>
         }
 
         case "session.idle": {
-          // Session went idle — remove from ccwatch
+          // Session went idle — show as waiting for input (like Claude Code's Stop event)
           if (!sessionId) break;
-          activeSessions.delete(sessionId);
-          deleteSession(sessionId);
+          const idleSession = readSession(sessionId);
+          if (!idleSession) break;
+          idleSession.state = "waiting:input";
+          idleSession.currentTool = undefined;
+          idleSession.lastUpdatedAt = now;
+          writeSession(idleSession);
           break;
         }
 
