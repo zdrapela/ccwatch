@@ -136,8 +136,8 @@ struct TickerView {
 
     private static func providerIcon(_ provider: Provider?) -> String {
         switch provider {
-        case .claude: return "🟣"
-        case .opencode: return "🟠"
+        case .claude: return "🟠"
+        case .opencode: return "🟣"
         default: return "⚪"
         }
     }

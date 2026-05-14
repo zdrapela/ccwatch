@@ -104,8 +104,8 @@ function formatTokens(tokens: number): string {
 
 function providerIcon(provider?: string): string {
   switch (provider) {
-    case "claude": return "\uD83D\uDFE3";
-    case "opencode": return "\uD83D\uDFE0";
+    case "claude": return "\uD83D\uDFE0";
+    case "opencode": return "\uD83D\uDFE3";
     default: return "\u26AA";
   }
 }
