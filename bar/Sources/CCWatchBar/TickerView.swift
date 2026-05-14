@@ -1,9 +1,59 @@
 import AppKit
 
+struct SessionGroup {
+    let cwd: String
+    let sessions: [Session]
+}
+
 struct TickerView {
-    static func sortedSessions(_ sessions: [Session]) -> [Session] {
-        sessions
-            .sorted { a, b in stateOrder(a.state) < stateOrder(b.state) }
+    static let groupHeaderHeight: CGFloat = 22
+    static let sessionRowHeight: CGFloat = 38
+    static let groupSpacing: CGFloat = 4
+
+    static func groupedSessions(_ sessions: [Session]) -> [SessionGroup] {
+        // Group by cwd
+        var map: [String: [Session]] = [:]
+        var order: [String] = []
+        for s in sessions {
+            let key = s.cwd.isEmpty ? "(unknown)" : s.cwd
+            if map[key] == nil {
+                map[key] = []
+                order.append(key)
+            }
+            map[key]!.append(s)
+        }
+
+        var groups: [SessionGroup] = []
+        for key in order {
+            var cwdSessions = map[key]!
+            cwdSessions.sort { a, b in stateOrder(a.state) < stateOrder(b.state) }
+            groups.append(SessionGroup(cwd: key, sessions: cwdSessions))
+        }
+
+        // Sort groups: groups with any working session first, then by path
+        groups.sort { a, b in
+            let aWorking = a.sessions.contains { $0.state == .working } ? 0 : 1
+            let bWorking = b.sessions.contains { $0.state == .working } ? 0 : 1
+            if aWorking != bWorking { return aWorking < bWorking }
+            return a.cwd < b.cwd
+        }
+
+        return groups
+    }
+
+    /// Total panel height needed for the grouped layout.
+    static func totalHeight(groups: [SessionGroup]) -> CGFloat {
+        if groups.isEmpty { return 0 }
+        var h: CGFloat = 8 // top padding
+        for (i, group) in groups.enumerated() {
+            h += groupHeaderHeight
+            h += CGFloat(group.sessions.count) * sessionRowHeight
+            if i < groups.count - 1 {
+                h += groupSpacing
+            }
+        }
+        h += 8 // bottom padding
+        return h
     }
 
     static func snapshotString(sessions: [Session]) -> String {
@@ -12,58 +62,68 @@ struct TickerView {
         }.joined(separator: "\n")
     }
 
-    // Line 1: stateIcon providerIcon project name
-    static func titleLine(_ session: Session) -> NSAttributedString {
+    // Group header: project name
+    static func groupHeaderLine(_ cwd: String) -> NSAttributedString {
+        let project = projectName(cwd)
+        return NSAttributedString(
+            string: project,
+            attributes: [
+                .foregroundColor: NSColor.black.withAlphaComponent(0.8),
+                .font: NSFont.systemFont(ofSize: 12, weight: .bold),
+            ]
+        )
+    }
+
+    // Session line 1: stateIcon providerIcon  model · cost · ctx%
+    static func sessionLine(_ session: Session) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let icon = stateIcon(session.state)
         let pIcon = providerIcon(session.provider)
-        let project = projectName(session.cwd)
 
         result.append(NSAttributedString(
             string: "\(icon)\(pIcon) ",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-            ]
+            attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]
         ))
 
+        let dimBlack = NSColor.black.withAlphaComponent(0.6)
+        let font = NSFont.systemFont(ofSize: 11, weight: .regular)
+        let sep = " \u{00B7} "
+
+        var parts: [String] = []
+        if let model = session.model, !model.isEmpty {
+            parts.append(shortenModel(model))
+        }
+        parts.append(String(format: "$%.2f", session.costUsd))
+        parts.append("ctx:\(Int(session.contextPct))%")
+
         result.append(NSAttributedString(
-            string: project,
-            attributes: [
-                .foregroundColor: NSColor.black,
-                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-            ]
+            string: parts.joined(separator: sep),
+            attributes: [.foregroundColor: dimBlack, .font: font]
         ))
 
         return result
     }
 
-    // Line 2: model · cost · ctx%  · tool
-    static func detailLine(_ session: Session) -> NSAttributedString {
-        let result = NSMutableAttributedString()
-        let dimBlack = NSColor.black.withAlphaComponent(0.55)
-        let font = NSFont.systemFont(ofSize: 11, weight: .regular)
-        let sep = " \u{00B7} "
+    // Session line 2: tool/status detail
+    static func sessionDetailLine(_ session: Session) -> NSAttributedString {
+        let dimBlack = NSColor.black.withAlphaComponent(0.45)
+        let font = NSFont.systemFont(ofSize: 10, weight: .regular)
 
-        var parts: [String] = []
-
-        if let model = session.model, !model.isEmpty {
-            parts.append(shortenModel(model))
-        }
-
-        parts.append(String(format: "$%.2f", session.costUsd))
-        parts.append("ctx:\(Int(session.contextPct))%")
-
+        let detail: String
         if let tool = session.currentTool, !tool.isEmpty {
-            parts.append(tool)
+            detail = tool
+        } else {
+            switch session.state {
+            case .working: detail = "Processing..."
+            case .waitingPermission: detail = "Permission requested"
+            case .waitingInput: detail = "Waiting for input"
+            }
         }
 
-        let joined = parts.joined(separator: sep)
-        result.append(NSAttributedString(
-            string: joined,
+        return NSAttributedString(
+            string: detail,
             attributes: [.foregroundColor: dimBlack, .font: font]
-        ))
-
-        return result
+        )
     }
 
     private static func stateOrder(_ state: SessionState) -> Int {

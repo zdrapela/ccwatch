@@ -102,8 +102,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         tickerController = TickerController()
         tickerController.attach(to: overlayWindow.panelContentView)
-        tickerController.onSessionCountChanged = { [weak self] count in
-            self?.overlayWindow.resizeForSessionCount(count)
+        tickerController.onLayoutChanged = { [weak self] height in
+            self?.overlayWindow.resizeToHeight(height)
         }
 
         overlayWindow.onPositionChanged = { [weak self] in

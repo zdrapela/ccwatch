@@ -146,25 +146,20 @@ final class OverlayWindow: NSPanel {
 
     // MARK: - Sizing & Positioning
 
-    func resizeForSessionCount(_ count: Int) {
-        let newHeight: CGFloat
-        if count == 0 {
-            newHeight = Self.emptyHeight
-        } else {
-            newHeight = CGFloat(count) * Self.sessionRowHeight + Self.verticalPadding * 2
-        }
+    func resizeToHeight(_ newHeight: CGFloat) {
+        let h = max(newHeight, Self.emptyHeight)
 
         if corner == .custom, let origin = customOrigin {
             // Keep the top edge anchored: top = origin.y + oldHeight
             let topEdge = origin.y + frame.height
-            let newY = topEdge - newHeight
+            let newY = topEdge - h
             let newOrigin = NSPoint(x: origin.x, y: newY)
             customOrigin = newOrigin
-            setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: Self.panelWidth, height: newHeight), display: true)
+            setFrame(NSRect(x: newOrigin.x, y: newOrigin.y, width: Self.panelWidth, height: h), display: true)
         } else {
             let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-            let origin = computeOrigin(screen: screen, height: newHeight)
-            setFrame(NSRect(x: origin.x, y: origin.y, width: Self.panelWidth, height: newHeight), display: true)
+            let origin = computeOrigin(screen: screen, height: h)
+            setFrame(NSRect(x: origin.x, y: origin.y, width: Self.panelWidth, height: h), display: true)
         }
     }
 

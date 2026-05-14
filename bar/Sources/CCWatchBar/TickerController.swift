@@ -4,7 +4,7 @@ final class TickerController {
     private var subviews: [NSView] = []
     private weak var containerView: NSView?
     private var lastContentSnapshot: String = ""
-    var onSessionCountChanged: ((Int) -> Void)?
+    var onLayoutChanged: ((CGFloat) -> Void)?
 
     func attach(to view: NSView) {
         containerView = view
@@ -13,7 +13,10 @@ final class TickerController {
     func update(sessions: [Session]) {
         guard let container = containerView else { return }
 
-        let sorted = TickerView.sortedSessions(sessions)
+        let sorted = sessions.sorted { a, b in
+            if a.cwd != b.cwd { return a.cwd < b.cwd }
+            return a.sessionId < b.sessionId
+        }
         let snapshot = TickerView.snapshotString(sessions: sorted)
         if snapshot == lastContentSnapshot {
             return
@@ -24,14 +27,15 @@ final class TickerController {
         for v in subviews { v.removeFromSuperview() }
         subviews.removeAll()
 
-        onSessionCountChanged?(sorted.count)
-
         let panelWidth = container.bounds.width
-        let rowHeight: CGFloat = 44
-        let padding: CGFloat = 8
         let hPadding: CGFloat = 14
 
-        if sorted.isEmpty {
+        let groups = TickerView.groupedSessions(sessions)
+
+        if groups.isEmpty {
+            let totalHeight = OverlayWindow.emptyHeight
+            onLayoutChanged?(totalHeight)
+
             let field = makeLabel()
             field.attributedStringValue = NSAttributedString(
                 string: "No active sessions",
@@ -41,34 +45,49 @@ final class TickerController {
                 ]
             )
             field.alignment = .center
-            field.frame = NSRect(x: 0, y: 0, width: panelWidth, height: container.bounds.height)
+            field.frame = NSRect(x: 0, y: 0, width: panelWidth, height: totalHeight)
             container.addSubview(field)
             subviews.append(field)
             return
         }
 
-        let totalHeight = CGFloat(sorted.count) * rowHeight + padding * 2
+        let totalHeight = TickerView.totalHeight(groups: groups)
+        onLayoutChanged?(totalHeight)
 
-        for (i, session) in sorted.enumerated() {
-            // Rows stack top-down: top row = last index in flipped-less NSView coords
-            let y = totalHeight - padding - CGFloat(i + 1) * rowHeight
+        // Render top-down: start from the top
+        var y = totalHeight - 8  // top padding
 
-            // Title line
-            let title = makeLabel()
-            title.attributedStringValue = TickerView.titleLine(session)
-            title.frame = NSRect(x: hPadding, y: y + 22, width: panelWidth - hPadding * 2, height: 18)
-            container.addSubview(title)
-            subviews.append(title)
+        for (gi, group) in groups.enumerated() {
+            // Group header
+            y -= TickerView.groupHeaderHeight
+            let header = makeLabel()
+            header.attributedStringValue = TickerView.groupHeaderLine(group.cwd)
+            header.frame = NSRect(x: hPadding, y: y + 4, width: panelWidth - hPadding * 2, height: 16)
+            container.addSubview(header)
+            subviews.append(header)
 
-            // Detail line
-            let detail = makeLabel()
-            detail.attributedStringValue = TickerView.detailLine(session)
-            detail.frame = NSRect(x: hPadding + 18, y: y + 4, width: panelWidth - hPadding * 2 - 18, height: 16)
-            container.addSubview(detail)
-            subviews.append(detail)
+            // Sessions in this group
+            for session in group.sessions {
+                y -= TickerView.sessionRowHeight
 
-            // Separator between sessions (not after last)
-            if i < sorted.count - 1 {
+                // Session line 1: icons + model · cost · ctx
+                let line1 = makeLabel()
+                line1.attributedStringValue = TickerView.sessionLine(session)
+                line1.frame = NSRect(x: hPadding + 8, y: y + 20, width: panelWidth - hPadding * 2 - 8, height: 16)
+                container.addSubview(line1)
+                subviews.append(line1)
+
+                // Session line 2: tool/status detail
+                let line2 = makeLabel()
+                line2.attributedStringValue = TickerView.sessionDetailLine(session)
+                line2.frame = NSRect(x: hPadding + 28, y: y + 4, width: panelWidth - hPadding * 2 - 28, height: 14)
+                container.addSubview(line2)
+                subviews.append(line2)
+            }
+
+            // Separator between groups (not after last)
+            if gi < groups.count - 1 {
+                y -= TickerView.groupSpacing / 2
                 let sep = NSView(frame: NSRect(
                     x: hPadding,
                     y: y - 0.5,
@@ -79,6 +98,7 @@ final class TickerController {
                 sep.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.1).cgColor
                 container.addSubview(sep)
                 subviews.append(sep)
+                y -= TickerView.groupSpacing / 2
             }
         }
     }
