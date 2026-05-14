@@ -79,22 +79,22 @@ struct TickerView {
         let result = NSMutableAttributedString()
         let icon = stateIcon(session.state)
 
-        result.append(NSAttributedString(
-            string: "\(icon) ",
-            attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]
-        ))
-
-        // Provider logo image
+        // Provider logo first
         if let logo = providerImage(session.provider) {
             let size: CGFloat = 13
             logo.size = NSSize(width: size, height: size)
             let attachment = NSTextAttachment()
             attachment.image = logo
-            // Vertically center the image with the text baseline
             attachment.bounds = CGRect(x: 0, y: -2, width: size, height: size)
             result.append(NSAttributedString(attachment: attachment))
             result.append(NSAttributedString(string: " "))
         }
+
+        // Then state icon
+        result.append(NSAttributedString(
+            string: "\(icon) ",
+            attributes: [.font: NSFont.systemFont(ofSize: 12, weight: .medium)]
+        ))
 
         let dimBlack = NSColor.black.withAlphaComponent(0.6)
         let font = NSFont.systemFont(ofSize: 11, weight: .regular)

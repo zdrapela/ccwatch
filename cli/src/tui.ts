@@ -125,9 +125,9 @@ function renderSessionRow(session: Session, width: number): string {
   const tokenStr = session.contextTokens != null ? ` ${formatTokens(session.contextTokens)}` : "";
   const ctx = `ctx:${Math.round(session.contextPct)}%${tokenStr}`;
 
-  // Line 1: icon STATE providerIcon   model  cost  ctx
-  const leftPart = `    ${color}${icon} ${label}${RESET}${pIcon}`;
-  const leftVisible = `    ${icon} ${label}${pIcon}`;
+  // Line 1: providerIcon stateIcon STATE   model  cost  ctx
+  const leftPart = `    ${pIcon} ${color}${icon} ${label}${RESET}`;
+  const leftVisible = `    ${pIcon} ${icon} ${label}`;
 
   const rightParts: string[] = [];
   if (model) rightParts.push(model);
