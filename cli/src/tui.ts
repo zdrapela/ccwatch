@@ -110,22 +110,24 @@ function providerIcon(provider?: string): string {
   }
 }
 
-function renderSession(session: Session, width: number): string {
+function renderGroupHeader(cwd: string, width: number): string {
+  const path = shortenPath(cwd);
+  return `  ${BOLD}${path}${RESET}`;
+}
+
+function renderSessionRow(session: Session, width: number): string {
   const color = stateColor(session.state);
   const icon = stateIcon(session.state);
   const label = stateLabel(session.state);
   const pIcon = providerIcon(session.provider);
-  const path = shortenPath(session.cwd);
   const model = session.model ? shortenModel(session.model) : "";
   const cost = formatCost(session.costUsd);
   const tokenStr = session.contextTokens != null ? ` ${formatTokens(session.contextTokens)}` : "";
   const ctx = `ctx:${Math.round(session.contextPct)}%${tokenStr}`;
 
-  // First line: icon STATE providerIcon path   model  cost  ctx
-  const line1Parts = [
-    `  ${color}${icon} ${label}${RESET}`,
-    `${pIcon} ${color}${path}${RESET}`,
-  ];
+  // Line 1: icon STATE providerIcon   model  cost  ctx
+  const leftPart = `    ${color}${icon} ${label}${RESET}${pIcon}`;
+  const leftVisible = `    ${icon} ${label}${pIcon}`;
 
   const rightParts: string[] = [];
   if (model) rightParts.push(model);
@@ -133,23 +135,59 @@ function renderSession(session: Session, width: number): string {
   rightParts.push(ctx);
   const rightStr = rightParts.join("   ");
 
-  // Calculate visible length of left part (without ANSI codes)
-  const leftText = `  ${icon} ${label} ${pIcon} ${path}`;
-  const padding = Math.max(1, width - leftText.length - rightStr.length - 2);
+  const padding = Math.max(1, width - leftVisible.length - rightStr.length - 2);
+  const line1 = leftPart + " ".repeat(padding) + `${color}${rightStr}${RESET}`;
 
-  const line1 = line1Parts.join("") + " ".repeat(padding) + `${color}${rightStr}${RESET}`;
-
-  // Second line: tool/status info + time ago
+  // Line 2: tool/status info + time ago
+  const indent = "                ";
   const detail = session.currentTool ?? statusText(session.state);
   const ago = timeAgo(session.lastUpdatedAt);
-  const detailLine = `              ${DIM}${detail}${RESET}`;
+  const detailLine = `${indent}${DIM}${detail}${RESET}`;
   const agoStr = `${DIM}${ago}${RESET}`;
-  const detailVisible = `              ${detail}`;
+  const detailVisible = `${indent}${detail}`;
   const detailPadding = Math.max(1, width - detailVisible.length - ago.length - 2);
 
   const line2 = detailLine + " ".repeat(detailPadding) + agoStr;
 
   return line1 + "\n" + line2;
+}
+
+interface SessionGroup {
+  cwd: string;
+  sessions: Session[];
+}
+
+function groupSessions(sessions: Session[]): SessionGroup[] {
+  const stateOrder: Record<SessionState, number> = {
+    working: 0,
+    "waiting:permission": 1,
+    "waiting:input": 2,
+  };
+
+  // Group by cwd
+  const map = new Map<string, Session[]>();
+  for (const s of sessions) {
+    const key = s.cwd || "(unknown)";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(s);
+  }
+
+  const groups: SessionGroup[] = [];
+  for (const [cwd, cwdSessions] of map) {
+    // Sort sessions within group by state
+    cwdSessions.sort((a, b) => stateOrder[a.state] - stateOrder[b.state]);
+    groups.push({ cwd, sessions: cwdSessions });
+  }
+
+  // Sort groups: groups with any working session first, then by path
+  groups.sort((a, b) => {
+    const aHasWorking = a.sessions.some(s => s.state === "working") ? 0 : 1;
+    const bHasWorking = b.sessions.some(s => s.state === "working") ? 0 : 1;
+    if (aHasWorking !== bHasWorking) return aHasWorking - bHasWorking;
+    return a.cwd.localeCompare(b.cwd);
+  });
+
+  return groups;
 }
 
 function statusText(state: SessionState): string {
@@ -192,14 +230,6 @@ export async function startTui(): Promise<void> {
     const width = process.stdout.columns || 80;
     const sessions = deriveSessions();
 
-    // Sort: working first, then waiting:permission, then waiting:input
-    const order: Record<SessionState, number> = {
-      working: 0,
-      "waiting:permission": 1,
-      "waiting:input": 2,
-    };
-    sessions.sort((a, b) => order[a.state] - order[b.state]);
-
     let output = CLEAR_SCREEN;
 
     // Header
@@ -214,8 +244,13 @@ export async function startTui(): Promise<void> {
       output += `  ${DIM}Start Claude Code or OpenCode in another terminal to see it here.${RESET}\n`;
       output += `\n  ${DIM}Run 'ccwatch install' to set up hooks if you haven't already.${RESET}\n`;
     } else {
-      for (const session of sessions) {
-        output += renderSession(session, width) + "\n\n";
+      const groups = groupSessions(sessions);
+      for (const group of groups) {
+        output += renderGroupHeader(group.cwd, width) + "\n";
+        for (const session of group.sessions) {
+          output += renderSessionRow(session, width) + "\n";
+        }
+        output += "\n";
       }
 
       output += renderFooter(sessions, width - 4) + "\n";
