@@ -102,20 +102,29 @@ function formatTokens(tokens: number): string {
   return `${Math.round(k)}k`;
 }
 
+function providerIcon(provider?: string): string {
+  switch (provider) {
+    case "claude": return "\uD83D\uDFE3";
+    case "opencode": return "\uD83D\uDFE0";
+    default: return "\u26AA";
+  }
+}
+
 function renderSession(session: Session, width: number): string {
   const color = stateColor(session.state);
   const icon = stateIcon(session.state);
   const label = stateLabel(session.state);
+  const pIcon = providerIcon(session.provider);
   const path = shortenPath(session.cwd);
   const model = session.model ? shortenModel(session.model) : "";
   const cost = formatCost(session.costUsd);
   const tokenStr = session.contextTokens != null ? ` ${formatTokens(session.contextTokens)}` : "";
   const ctx = `ctx:${Math.round(session.contextPct)}%${tokenStr}`;
 
-  // First line: icon STATE path   model  cost  ctx
+  // First line: icon STATE providerIcon path   model  cost  ctx
   const line1Parts = [
     `  ${color}${icon} ${label}${RESET}`,
-    ` ${color}${path}${RESET}`,
+    `${pIcon} ${color}${path}${RESET}`,
   ];
 
   const rightParts: string[] = [];
@@ -125,7 +134,7 @@ function renderSession(session: Session, width: number): string {
   const rightStr = rightParts.join("   ");
 
   // Calculate visible length of left part (without ANSI codes)
-  const leftText = `  ${icon} ${label} ${path}`;
+  const leftText = `  ${icon} ${label} ${pIcon} ${path}`;
   const padding = Math.max(1, width - leftText.length - rightStr.length - 2);
 
   const line1 = line1Parts.join("") + " ".repeat(padding) + `${color}${rightStr}${RESET}`;

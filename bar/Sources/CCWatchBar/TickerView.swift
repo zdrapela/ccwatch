@@ -8,18 +8,19 @@ struct TickerView {
 
     static func snapshotString(sessions: [Session]) -> String {
         sessions.map { s in
-            "\(s.sessionId)|\(s.state.rawValue)|\(s.cwd)|\(s.model ?? "")|\(s.costUsd)|\(s.contextPct)|\(s.currentTool ?? "")|\(s.lastUpdatedAt)"
+            "\(s.sessionId)|\(s.provider?.rawValue ?? "")|\(s.state.rawValue)|\(s.cwd)|\(s.model ?? "")|\(s.costUsd)|\(s.contextPct)|\(s.currentTool ?? "")|\(s.lastUpdatedAt)"
         }.joined(separator: "\n")
     }
 
-    // Line 1: icon + project name
+    // Line 1: stateIcon providerIcon project name
     static func titleLine(_ session: Session) -> NSAttributedString {
         let result = NSMutableAttributedString()
         let icon = stateIcon(session.state)
+        let pIcon = providerIcon(session.provider)
         let project = projectName(session.cwd)
 
         result.append(NSAttributedString(
-            string: "\(icon) ",
+            string: "\(icon)\(pIcon) ",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
             ]
@@ -70,6 +71,14 @@ struct TickerView {
         case .working: return 0
         case .waitingPermission: return 1
         case .waitingInput: return 2
+        }
+    }
+
+    private static func providerIcon(_ provider: Provider?) -> String {
+        switch provider {
+        case .claude: return "🟣"
+        case .opencode: return "🟠"
+        default: return "⚪"
         }
     }
 
