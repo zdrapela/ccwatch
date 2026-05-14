@@ -70,6 +70,31 @@ function formatCost(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
+function shortenModel(model: string): string {
+  // Strip provider prefixes (e.g. "anthropic/", "google-vertex-anthropic/")
+  const name = model.replace(/^[a-z0-9.-]+\//, "");
+  // claude-opus-4-6@default -> Opus 4.6
+  const m1 = name.match(/^claude-(\w+)-(\d+)-(\d+)(?:[-@].+)?$/i);
+  if (m1) {
+    const variant = m1[1].charAt(0).toUpperCase() + m1[1].slice(1).toLowerCase();
+    return `${variant} ${m1[2]}.${m1[3]}`;
+  }
+  // claude-3-5-haiku-20241022 -> Haiku 3.5
+  const m2 = name.match(/^claude-(\d+)-(\d+)-(\w+)(?:-\d{8})?(?:[-@].+)?$/i);
+  if (m2) {
+    const variant = m2[3].charAt(0).toUpperCase() + m2[3].slice(1).toLowerCase();
+    return `${variant} ${m2[1]}.${m2[2]}`;
+  }
+  // claude-opus-4.6 -> Opus 4.6
+  const m3 = name.match(/^claude-(\w+)-(\d+\.\d+)(?:[-@].+)?$/i);
+  if (m3) {
+    const variant = m3[1].charAt(0).toUpperCase() + m3[1].slice(1).toLowerCase();
+    return `${variant} ${m3[2]}`;
+  }
+  // Already short (e.g. "Opus 4" from Claude Code statusLine)
+  return name.replace(/@default$/, "").replace(/-\d{8}$/, "");
+}
+
 function formatTokens(tokens: number): string {
   const k = tokens / 1000;
   if (k < 1) return `${tokens}`;
@@ -82,7 +107,7 @@ function renderSession(session: Session, width: number): string {
   const icon = stateIcon(session.state);
   const label = stateLabel(session.state);
   const path = shortenPath(session.cwd);
-  const model = session.model ?? "";
+  const model = session.model ? shortenModel(session.model) : "";
   const cost = formatCost(session.costUsd);
   const tokenStr = session.contextTokens != null ? ` ${formatTokens(session.contextTokens)}` : "";
   const ctx = `ctx:${Math.round(session.contextPct)}%${tokenStr}`;

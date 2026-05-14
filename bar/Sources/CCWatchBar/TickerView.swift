@@ -46,7 +46,7 @@ struct TickerView {
         var parts: [String] = []
 
         if let model = session.model, !model.isEmpty {
-            parts.append(model)
+            parts.append(shortenModel(model))
         }
 
         parts.append(String(format: "$%.2f", session.costUsd))
@@ -79,6 +79,47 @@ struct TickerView {
         case .waitingPermission: return "🔐"
         case .waitingInput: return "⌨️"
         }
+    }
+
+    private static func shortenModel(_ model: String) -> String {
+        // Strip provider prefix (e.g. "anthropic/")
+        let name: String
+        if let idx = model.lastIndex(of: "/") {
+            name = String(model[model.index(after: idx)...])
+        } else {
+            name = model
+        }
+
+        // claude-opus-4-6@default -> Opus 4.6
+        let p1 = try? NSRegularExpression(pattern: "^claude-(\\w+)-(\\d+)-(\\d+)(?:[-@].+)?$", options: .caseInsensitive)
+        if let match = p1?.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) {
+            let variant = (name as NSString).substring(with: match.range(at: 1)).capitalized
+            let major = (name as NSString).substring(with: match.range(at: 2))
+            let minor = (name as NSString).substring(with: match.range(at: 3))
+            return "\(variant) \(major).\(minor)"
+        }
+
+        // claude-3-5-haiku-20241022 -> Haiku 3.5
+        let p2 = try? NSRegularExpression(pattern: "^claude-(\\d+)-(\\d+)-(\\w+)(?:-\\d{8})?(?:[-@].+)?$", options: .caseInsensitive)
+        if let match = p2?.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) {
+            let major = (name as NSString).substring(with: match.range(at: 1))
+            let minor = (name as NSString).substring(with: match.range(at: 2))
+            let variant = (name as NSString).substring(with: match.range(at: 3)).capitalized
+            return "\(variant) \(major).\(minor)"
+        }
+
+        // claude-opus-4.6 -> Opus 4.6
+        let p3 = try? NSRegularExpression(pattern: "^claude-(\\w+)-(\\d+\\.\\d+)(?:[-@].+)?$", options: .caseInsensitive)
+        if let match = p3?.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) {
+            let variant = (name as NSString).substring(with: match.range(at: 1)).capitalized
+            let version = (name as NSString).substring(with: match.range(at: 2))
+            return "\(variant) \(version)"
+        }
+
+        // Fallback: strip @default and date suffixes
+        return name
+            .replacingOccurrences(of: "@default", with: "")
+            .replacingOccurrences(of: #"-\d{8}$"#, with: "", options: .regularExpression)
     }
 
     private static func projectName(_ cwd: String) -> String {
