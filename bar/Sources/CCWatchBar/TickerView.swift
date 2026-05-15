@@ -62,16 +62,18 @@ struct TickerView {
         }.joined(separator: "\n")
     }
 
+    // Group header attributes (shared with ClickableLabel)
+    static func groupHeaderAttributes() -> [NSAttributedString.Key: Any] {
+        [
+            .foregroundColor: NSColor.labelColor,
+            .font: NSFont.systemFont(ofSize: 12, weight: .bold),
+        ]
+    }
+
     // Group header: project name
     static func groupHeaderLine(_ cwd: String) -> NSAttributedString {
         let project = projectName(cwd)
-        return NSAttributedString(
-            string: project,
-            attributes: [
-                .foregroundColor: NSColor.labelColor,
-                .font: NSFont.systemFont(ofSize: 12, weight: .bold),
-            ]
-        )
+        return NSAttributedString(string: project, attributes: groupHeaderAttributes())
     }
 
     // Session line 1: stateIcon providerLogo  model · cost · ctx%
@@ -205,7 +207,7 @@ struct TickerView {
             .replacingOccurrences(of: #"-\d{8}$"#, with: "", options: .regularExpression)
     }
 
-    private static func projectName(_ cwd: String) -> String {
+    static func projectName(_ cwd: String) -> String {
         if cwd.isEmpty { return "unknown" }
         return (cwd as NSString).lastPathComponent
     }

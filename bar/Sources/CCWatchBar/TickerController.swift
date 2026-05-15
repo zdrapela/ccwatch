@@ -5,6 +5,7 @@ final class TickerController {
     private weak var containerView: NSView?
     private var lastContentSnapshot: String = ""
     var onLayoutChanged: ((CGFloat) -> Void)?
+    var onWorkspaceClicked: ((String) -> Void)?
 
     func attach(to view: NSView) {
         containerView = view
@@ -58,11 +59,18 @@ final class TickerController {
         var y = totalHeight - 8  // top padding
 
         for (gi, group) in groups.enumerated() {
-            // Group header
+            // Group header (clickable — opens workspace in editor)
             y -= TickerView.groupHeaderHeight
-            let header = makeLabel()
-            header.attributedStringValue = TickerView.groupHeaderLine(group.cwd)
+            let headerAttrs = TickerView.groupHeaderAttributes()
+            let header = ClickableLabel(
+                string: TickerView.projectName(group.cwd),
+                attributes: headerAttrs
+            )
             header.frame = NSRect(x: hPadding, y: y + 4, width: panelWidth - hPadding * 2, height: 16)
+            let cwd = group.cwd
+            header.onClick = { [weak self] in
+                self?.onWorkspaceClicked?(cwd)
+            }
             container.addSubview(header)
             subviews.append(header)
 

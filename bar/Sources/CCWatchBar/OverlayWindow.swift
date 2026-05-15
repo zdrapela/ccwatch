@@ -28,7 +28,7 @@ final class OverlayWindow: NSPanel {
     static let cornerRadius: CGFloat = 12
     static let emptyHeight: CGFloat = 40
 
-    private let vibrancyView = NSVisualEffectView()
+    private let vibrancyView = ClickThroughView()
     private var moveObserver: Any?
 
     /// Called when the user finishes dragging the panel to a new custom position.
@@ -67,7 +67,7 @@ final class OverlayWindow: NSPanel {
 
         level = .statusBar
         collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
-        ignoresMouseEvents = true
+        ignoresMouseEvents = false
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
@@ -102,7 +102,7 @@ final class OverlayWindow: NSPanel {
     func enterMoveMode() {
         guard !isInMoveMode else { return }
         isInMoveMode = true
-        ignoresMouseEvents = false
+        vibrancyView.interactiveMode = true
         isMovableByWindowBackground = true
 
         // Visual indicator: highlight border
@@ -123,7 +123,7 @@ final class OverlayWindow: NSPanel {
     func exitMoveMode() {
         guard isInMoveMode else { return }
         isInMoveMode = false
-        ignoresMouseEvents = true
+        vibrancyView.interactiveMode = false
         isMovableByWindowBackground = false
 
         // Remove highlight

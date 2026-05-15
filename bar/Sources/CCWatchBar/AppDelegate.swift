@@ -8,6 +8,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var cornerMenuItems: [PanelCorner: NSMenuItem] = [:]
     private var moveMenuItem: NSMenuItem!
     private var opacitySlider: NSSlider!
+    private var editorMenuItems: [String: NSMenuItem] = [:]
+
+    private static let editorChoices: [(label: String, command: String)] = [
+        ("VS Code", "code"),
+        ("Cursor", "cursor"),
+        ("Zed", "zed"),
+        ("Terminal", "open -a Terminal"),
+        ("Finder", "open"),
+    ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -86,6 +95,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         opacitySubmenu.submenu = opacityMenu
         menu.addItem(opacitySubmenu)
 
+        // Editor chooser
+        let editorMenu = NSMenu()
+        for choice in Self.editorChoices {
+            let item = NSMenuItem(title: choice.label, action: #selector(setEditor(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = choice.command
+            editorMenu.addItem(item)
+            editorMenuItems[choice.command] = item
+        }
+
+        editorMenu.addItem(NSMenuItem.separator())
+
+        let customEditorItem = NSMenuItem(title: "Custom\u{2026}", action: #selector(setCustomEditor), keyEquivalent: "")
+        customEditorItem.target = self
+        editorMenu.addItem(customEditorItem)
+        editorMenuItems["__custom__"] = customEditorItem
+
+        updateEditorCheckmarks()
+
+        let editorSubmenu = NSMenuItem(title: "Editor", action: nil, keyEquivalent: "")
+        editorSubmenu.submenu = editorMenu
+        menu.addItem(editorSubmenu)
+
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q")
@@ -104,6 +136,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tickerController.attach(to: overlayWindow.panelContentView)
         tickerController.onLayoutChanged = { [weak self] height in
             self?.overlayWindow.resizeToHeight(height)
+        }
+        tickerController.onWorkspaceClicked = { [weak self] cwd in
+            self?.openWorkspace(cwd)
         }
 
         overlayWindow.onPositionChanged = { [weak self] in
@@ -184,6 +219,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             moveMenuItem?.title = "Custom Position"
         } else {
             moveMenuItem?.title = "Custom Position…"
+        }
+    }
+
+    @objc private func setEditor(_ sender: NSMenuItem) {
+        guard let command = sender.representedObject as? String else { return }
+        UserDefaults.standard.set(command, forKey: "editorCommand")
+        updateEditorCheckmarks()
+    }
+
+    @objc private func setCustomEditor() {
+        let alert = NSAlert()
+        alert.messageText = "Custom Editor Command"
+        alert.informativeText = "Enter the shell command to open a workspace directory.\nUse $DIR as a placeholder for the directory path, or it will be appended as the last argument.\n\nExamples: code, cursor, vim, open -a iTerm"
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        input.stringValue = UserDefaults.standard.string(forKey: "editorCommand") ?? "code"
+        alert.accessoryView = input
+
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let command = input.stringValue.trimmingCharacters(in: .whitespaces)
+            if !command.isEmpty {
+                UserDefaults.standard.set(command, forKey: "editorCommand")
+                updateEditorCheckmarks()
+            }
+        }
+    }
+
+    private func updateEditorCheckmarks() {
+        let current = UserDefaults.standard.string(forKey: "editorCommand") ?? "code"
+        let isPreset = Self.editorChoices.contains { $0.command == current }
+
+        for (command, item) in editorMenuItems {
+            if command == "__custom__" {
+                item.state = isPreset ? .off : .on
+                item.title = isPreset ? "Custom\u{2026}" : "Custom: \(current)"
+            } else {
+                item.state = command == current ? .on : .off
+            }
+        }
+    }
+
+    func openWorkspace(_ cwd: String) {
+        let editor = UserDefaults.standard.string(forKey: "editorCommand") ?? "code"
+
+        // Build the shell command
+        let shellCommand: String
+        if editor.contains("$DIR") {
+            shellCommand = editor.replacingOccurrences(of: "$DIR", with: "'\(cwd)'")
+        } else {
+            shellCommand = "\(editor) '\(cwd)'"
+        }
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        task.arguments = ["-c", shellCommand]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+
+        do {
+            try task.run()
+        } catch {
+            // Fallback: open in Finder
+            NSWorkspace.shared.open(URL(fileURLWithPath: cwd))
         }
     }
 
