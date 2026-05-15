@@ -157,6 +157,8 @@ function deleteSession(sessionId) {
 const activeSessions = new Map();
 // Track per-message cost to compute session total (messageId -> cost)
 const messageCosts = new Map();
+// Track subagent sessions (child sessions with parentID) to exclude them
+const subagentSessions = new Set();
 // Model context window sizes (modelId -> context limit)
 let modelContextLimits = {};
 
@@ -219,6 +221,22 @@ export const CCWatchPlugin = async ({ project, directory, worktree, client }) =>
       // OpenCode events use top-level sessionID, not nested session.id
       const sessionId = event.properties?.sessionID;
 
+      // Detect subagent sessions from session.created/session.updated info
+      if (sessionId && (event.type === "session.created" || event.type === "session.updated")) {
+        const info = event.properties?.info;
+        if (info?.parentID) {
+          subagentSessions.add(sessionId);
+        }
+      }
+
+      // Skip all events for subagent sessions
+      if (sessionId && subagentSessions.has(sessionId)) {
+        if (event.type === "session.deleted") {
+          subagentSessions.delete(sessionId);
+        }
+        return;
+      }
+
       switch (event.type) {
         case "session.status": {
           if (!sessionId) break;
@@ -244,7 +262,7 @@ export const CCWatchPlugin = async ({ project, directory, worktree, client }) =>
         }
 
         case "session.created": {
-          // New session created — track it
+          // New session created — track it (subagents already filtered above)
           if (!sessionId) break;
           ensureSession(sessionId, cwd, now);
           break;
@@ -253,7 +271,6 @@ export const CCWatchPlugin = async ({ project, directory, worktree, client }) =>
         case "session.updated": {
           if (!sessionId) break;
           // Only update existing tracked sessions, don't create new ones
-          // (session.updated fires for all DB sessions, not just active ones)
           const existing = readSession(sessionId);
           if (!existing) break;
           const info = event.properties?.info;
