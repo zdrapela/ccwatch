@@ -128,7 +128,7 @@ final class OverlayWindow: NSPanel {
 
     /// Determine which side of the screen the panel is on.
     /// Returns true if the panel is on the right half.
-    private func isOnRightSide() -> Bool {
+    func isOnRightSide() -> Bool {
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         return expandedFrame.midX >= screen.midX
     }

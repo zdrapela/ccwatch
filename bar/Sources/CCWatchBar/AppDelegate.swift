@@ -148,9 +148,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tickerController.onWorkspaceClicked = { [weak self] cwd in
             self?.openWorkspace(cwd)
         }
+        tickerController.isRightSide = overlayWindow.isOnRightSide()
 
         overlayWindow.onPositionChanged = { [weak self] in
             self?.updateCornerCheckmarks()
+            self?.syncRightSide()
         }
 
         // Restore saved opacity (default 1.0)
@@ -207,6 +209,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         overlayWindow.setPresetCorner(corner)
         updateCornerCheckmarks()
+        syncRightSide()
+    }
+
+    private func syncRightSide() {
+        tickerController.isRightSide = overlayWindow.isOnRightSide()
     }
 
     @objc private func startMoveMode() {

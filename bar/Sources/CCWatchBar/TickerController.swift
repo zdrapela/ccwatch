@@ -6,6 +6,7 @@ final class TickerController {
     private var lastContentSnapshot: String = ""
     var onLayoutChanged: ((CGFloat) -> Void)?
     var onWorkspaceClicked: ((String) -> Void)?
+    var isRightSide: Bool = true
 
     func attach(to view: NSView) {
         containerView = view
@@ -67,6 +68,10 @@ final class TickerController {
                 attributes: headerAttrs
             )
             header.frame = NSRect(x: hPadding, y: y + 4, width: panelWidth - hPadding * 2, height: 16)
+            if isRightSide {
+                header.alignment = .right
+                header.lineBreakMode = .byClipping
+            }
             let cwd = group.cwd
             header.onClick = { [weak self] in
                 self?.onWorkspaceClicked?(cwd)
@@ -82,6 +87,7 @@ final class TickerController {
                 let line1 = makeLabel()
                 line1.attributedStringValue = TickerView.sessionLine(session)
                 line1.frame = NSRect(x: hPadding + 8, y: y + 20, width: panelWidth - hPadding * 2 - 8, height: 16)
+                if isRightSide { line1.lineBreakMode = .byClipping }
                 container.addSubview(line1)
                 subviews.append(line1)
 
@@ -89,6 +95,7 @@ final class TickerController {
                 let line2 = makeLabel()
                 line2.attributedStringValue = TickerView.sessionDetailLine(session)
                 line2.frame = NSRect(x: hPadding + 28, y: y + 4, width: panelWidth - hPadding * 2 - 28, height: 14)
+                if isRightSide { line2.lineBreakMode = .byClipping }
                 container.addSubview(line2)
                 subviews.append(line2)
             }
