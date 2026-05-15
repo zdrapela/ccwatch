@@ -95,6 +95,7 @@ final class TickerController {
                 header.lineBreakMode = .byClipping
             }
             groupView.addSubview(header)
+            groupView.headerLabel = header
 
             // Sessions in this group
             var sessionY = headerY

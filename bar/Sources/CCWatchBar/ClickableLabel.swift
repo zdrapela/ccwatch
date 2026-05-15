@@ -77,9 +77,12 @@ final class ClickableLabel: NSTextField {
 
 /// A transparent view that covers an entire group area and responds to clicks.
 /// All child labels are added as subviews of this view.
+/// Set `headerLabel` to underline the project name on hover.
 final class ClickableGroupView: NSView {
     var onClick: (() -> Void)?
+    weak var headerLabel: NSTextField?
     private var trackingArea: NSTrackingArea?
+    private var isHovered = false
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -97,10 +100,14 @@ final class ClickableGroupView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        updateHeaderUnderline()
         NSCursor.pointingHand.set()
     }
 
     override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        updateHeaderUnderline()
         NSCursor.arrow.set()
     }
 
@@ -118,5 +125,18 @@ final class ClickableGroupView: NSView {
 
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .pointingHand)
+    }
+
+    private func updateHeaderUnderline() {
+        guard let label = headerLabel else { return }
+        let text = label.attributedStringValue
+        let mutable = NSMutableAttributedString(attributedString: text)
+        let range = NSRange(location: 0, length: mutable.length)
+        if isHovered {
+            mutable.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+        } else {
+            mutable.removeAttribute(.underlineStyle, range: range)
+        }
+        label.attributedStringValue = mutable
     }
 }
