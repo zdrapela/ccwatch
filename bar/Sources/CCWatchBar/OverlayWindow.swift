@@ -39,6 +39,7 @@ final class OverlayWindow: NSPanel {
     private var moveObserver: Any?
     private var mouseTrackingArea: NSTrackingArea?
     private var panelState: PanelState = .expanded
+    private var isAnimating = false
     private var expandedFrame: NSRect = .zero
 
     /// Called when the user finishes dragging the panel to a new custom position.
@@ -146,29 +147,39 @@ final class OverlayWindow: NSPanel {
     }
 
     func collapse() {
-        guard panelState != .collapsed else { return }
+        guard panelState != .collapsed, !isAnimating else { return }
         expandedFrame = frame
         panelState = .collapsed
+        isAnimating = true
 
+        let target = miniFrame()
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.2
             ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            self.animator().setFrame(miniFrame(), display: true)
+            self.animator().setFrame(target, display: true)
         } completionHandler: { [weak self] in
-            self?.refreshTrackingArea()
+            guard let self else { return }
+            self.setFrame(target, display: true)
+            self.isAnimating = false
+            self.refreshTrackingArea()
         }
     }
 
     func expand() {
-        guard panelState != .expanded else { return }
+        guard panelState != .expanded, !isAnimating else { return }
         panelState = .expanded
+        isAnimating = true
 
+        let target = expandedFrame
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.2
             ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            self.animator().setFrame(expandedFrame, display: true)
+            self.animator().setFrame(target, display: true)
         } completionHandler: { [weak self] in
-            self?.refreshTrackingArea()
+            guard let self else { return }
+            self.setFrame(target, display: true)
+            self.isAnimating = false
+            self.refreshTrackingArea()
         }
     }
 
@@ -189,13 +200,13 @@ final class OverlayWindow: NSPanel {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        if autoHide && panelState == .collapsed && !isInMoveMode {
+        if autoHide && panelState == .collapsed && !isInMoveMode && !isAnimating {
             expand()
         }
     }
 
     override func mouseExited(with event: NSEvent) {
-        if autoHide && panelState == .expanded && !isInMoveMode {
+        if autoHide && panelState == .expanded && !isInMoveMode && !isAnimating {
             collapse()
         }
     }
