@@ -92,7 +92,6 @@ final class TickerController {
             header.frame = NSRect(x: hPadding, y: headerY + 4, width: panelWidth - hPadding * 2, height: 16)
             if isRightSide {
                 header.alignment = .right
-                header.lineBreakMode = .byClipping
             }
             groupView.addSubview(header)
             groupView.headerLabel = header
@@ -106,14 +105,12 @@ final class TickerController {
                 let line1 = makeLabel()
                 line1.attributedStringValue = TickerView.sessionLine(session)
                 line1.frame = NSRect(x: hPadding + 8, y: sessionY + 20, width: panelWidth - hPadding * 2 - 8, height: 16)
-                if isRightSide { line1.lineBreakMode = .byClipping }
                 groupView.addSubview(line1)
 
                 // Session line 2: tool/status detail
                 let line2 = makeLabel()
                 line2.attributedStringValue = TickerView.sessionDetailLine(session)
                 line2.frame = NSRect(x: hPadding + 28, y: sessionY + 4, width: panelWidth - hPadding * 2 - 28, height: 14)
-                if isRightSide { line2.lineBreakMode = .byClipping }
                 groupView.addSubview(line2)
             }
 
@@ -141,9 +138,9 @@ final class TickerController {
         field.isSelectable = false
         field.isBordered = false
         field.drawsBackground = false
-        field.lineBreakMode = .byTruncatingTail
+        field.lineBreakMode = isRightSide ? .byClipping : .byTruncatingTail
         field.maximumNumberOfLines = 1
-        field.cell?.truncatesLastVisibleLine = true
+        field.cell?.truncatesLastVisibleLine = !isRightSide
         return field
     }
 }
