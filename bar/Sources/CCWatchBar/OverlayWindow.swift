@@ -151,8 +151,16 @@ final class OverlayWindow: NSPanel {
     // MARK: - Auto-hide
 
     private func miniFrame() -> NSRect {
+        let x: CGFloat
+        if isOnRightSide() {
+            // Right-side panel: keep right edge aligned with expanded right edge
+            x = expandedFrame.maxX - Self.miniWidth
+        } else {
+            // Left-side panel: keep left edge aligned with expanded left edge
+            x = expandedFrame.origin.x
+        }
         return NSRect(
-            x: expandedFrame.origin.x,
+            x: x,
             y: expandedFrame.origin.y,
             width: Self.miniWidth,
             height: expandedFrame.height
