@@ -89,7 +89,8 @@ final class TickerController {
                 attributes: headerAttrs
             )
             let headerY = groupHeight - TickerView.groupHeaderHeight
-            header.frame = NSRect(x: hPadding, y: headerY + 4, width: panelWidth - hPadding * 2, height: 16)
+            let labelWidth = isRightSide ? panelWidth * 2 : panelWidth - hPadding * 2
+            header.frame = NSRect(x: hPadding, y: headerY + 4, width: labelWidth, height: 16)
             if isRightSide {
                 header.alignment = .right
             }
@@ -104,13 +105,15 @@ final class TickerController {
                 // Session line 1: icons + model · cost · ctx
                 let line1 = makeLabel()
                 line1.attributedStringValue = TickerView.sessionLine(session)
-                line1.frame = NSRect(x: hPadding + 8, y: sessionY + 20, width: panelWidth - hPadding * 2 - 8, height: 16)
+                let line1Width = isRightSide ? panelWidth * 2 : panelWidth - hPadding * 2 - 8
+                line1.frame = NSRect(x: hPadding + 8, y: sessionY + 20, width: line1Width, height: 16)
                 groupView.addSubview(line1)
 
                 // Session line 2: tool/status detail
                 let line2 = makeLabel()
                 line2.attributedStringValue = TickerView.sessionDetailLine(session)
-                line2.frame = NSRect(x: hPadding + 28, y: sessionY + 4, width: panelWidth - hPadding * 2 - 28, height: 14)
+                let line2Width = isRightSide ? panelWidth * 2 : panelWidth - hPadding * 2 - 28
+                line2.frame = NSRect(x: hPadding + 28, y: sessionY + 4, width: line2Width, height: 14)
                 groupView.addSubview(line2)
             }
 
@@ -138,9 +141,9 @@ final class TickerController {
         field.isSelectable = false
         field.isBordered = false
         field.drawsBackground = false
-        field.lineBreakMode = isRightSide ? .byClipping : .byTruncatingTail
+        field.lineBreakMode = .byTruncatingTail
         field.maximumNumberOfLines = 1
-        field.cell?.truncatesLastVisibleLine = !isRightSide
+        field.cell?.truncatesLastVisibleLine = true
         return field
     }
 }
