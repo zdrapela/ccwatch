@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var moveMenuItem: NSMenuItem!
     private var opacitySlider: NSSlider!
     private var editorMenuItems: [String: NSMenuItem] = [:]
+    private var autoHideMenuItem: NSMenuItem!
 
     private static let editorChoices: [(label: String, command: String)] = [
         ("VS Code", "code"),
@@ -117,6 +118,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let editorSubmenu = NSMenuItem(title: "Editor", action: nil, keyEquivalent: "")
         editorSubmenu.submenu = editorMenu
         menu.addItem(editorSubmenu)
+
+        menu.addItem(NSMenuItem.separator())
+
+        autoHideMenuItem = NSMenuItem(title: "Auto-hide", action: #selector(toggleAutoHide), keyEquivalent: "")
+        autoHideMenuItem.target = self
+        autoHideMenuItem.state = UserDefaults.standard.bool(forKey: "autoHide") ? .on : .off
+        menu.addItem(autoHideMenuItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -286,6 +294,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             // Fallback: open in Finder
             NSWorkspace.shared.open(URL(fileURLWithPath: cwd))
         }
+    }
+
+    @objc private func toggleAutoHide() {
+        let newValue = !UserDefaults.standard.bool(forKey: "autoHide")
+        UserDefaults.standard.set(newValue, forKey: "autoHide")
+        autoHideMenuItem.state = newValue ? .on : .off
+        overlayWindow.autoHide = newValue
     }
 
     @objc private func opacityChanged(_ sender: NSSlider) {
