@@ -27,11 +27,11 @@ private enum PanelState {
 
 final class OverlayWindow: NSPanel {
     static let panelWidth: CGFloat = 280
-    static let miniWidth: CGFloat = 50
+    static let miniWidth: CGFloat = 100
     static let sessionRowHeight: CGFloat = 44
     static let verticalPadding: CGFloat = 8
     static let margin: CGFloat = 16
-    static let bottomMargin: CGFloat = 24
+    static let bottomMargin: CGFloat = 32
     static let cornerRadius: CGFloat = 12
     static let emptyHeight: CGFloat = 40
 
@@ -106,6 +106,7 @@ final class OverlayWindow: NSPanel {
 
         reposition()
         expandedFrame = self.frame
+        updateCornerMask()
 
         autoHide = UserDefaults.standard.bool(forKey: "autoHide")
 
@@ -123,27 +124,39 @@ final class OverlayWindow: NSPanel {
         vibrancyView
     }
 
-    // MARK: - Auto-hide
+    // MARK: - Corner Mask
 
-    private func collapseEdge() -> PanelCorner {
+    /// Determine which side of the screen the panel is on.
+    /// Returns true if the panel is on the right half.
+    private func isOnRightSide() -> Bool {
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let centerX = expandedFrame.midX
-        let screenCenterX = screen.midX
-        return centerX >= screenCenterX ? .bottomRight : .bottomLeft
+        return expandedFrame.midX >= screen.midX
     }
 
-    private func miniFrame() -> NSRect {
-        let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let edge = collapseEdge()
-        let x: CGFloat
-        if edge == .bottomRight {
-            // Slide right: panel right edge flush near screen right edge
-            x = screen.maxX - Self.miniWidth - Self.margin
+    /// Round only the corners on the inner side (away from screen edge).
+    /// The edge side stays square and flush against the screen border.
+    private func updateCornerMask() {
+        guard let layer = vibrancyView.layer else { return }
+        layer.cornerRadius = Self.cornerRadius
+
+        if isOnRightSide() {
+            // Right side flush — round left corners only
+            layer.maskedCorners = [.layerMinXMinYCorner, .layerMinXMaxYCorner]
         } else {
-            // Slide left: panel left edge flush near screen left edge
-            x = screen.origin.x + Self.margin
+            // Left side flush — round right corners only
+            layer.maskedCorners = [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
         }
-        return NSRect(x: x, y: expandedFrame.origin.y, width: Self.miniWidth, height: expandedFrame.height)
+    }
+
+    // MARK: - Auto-hide
+
+    private func miniFrame() -> NSRect {
+        return NSRect(
+            x: expandedFrame.origin.x,
+            y: expandedFrame.origin.y,
+            width: Self.miniWidth,
+            height: expandedFrame.height
+        )
     }
 
     func collapse() {
@@ -265,6 +278,7 @@ final class OverlayWindow: NSPanel {
 
         // Update expandedFrame after move
         expandedFrame = frame
+        updateCornerMask()
 
         // Re-collapse if auto-hide is on
         if autoHide {
@@ -297,6 +311,7 @@ final class OverlayWindow: NSPanel {
             setFrame(expandedFrame, display: true)
         }
 
+        updateCornerMask()
         refreshTrackingArea()
     }
 
@@ -315,6 +330,7 @@ final class OverlayWindow: NSPanel {
             setFrame(expandedFrame, display: true)
         }
 
+        updateCornerMask()
         refreshTrackingArea()
     }
 
@@ -328,26 +344,26 @@ final class OverlayWindow: NSPanel {
     }
 
     private func computeOrigin(screen: NSRect, height: CGFloat) -> NSPoint {
-        let m = Self.margin
         let bm = Self.bottomMargin
+        let vm = Self.margin  // vertical margin for top corners
         let x: CGFloat
         let y: CGFloat
 
         switch corner {
         case .bottomRight:
-            x = screen.maxX - Self.panelWidth - m
+            x = screen.maxX - Self.panelWidth  // flush right
             y = screen.origin.y + bm
         case .bottomLeft:
-            x = screen.origin.x + m
+            x = screen.origin.x                // flush left
             y = screen.origin.y + bm
         case .topRight:
-            x = screen.maxX - Self.panelWidth - m
-            y = screen.maxY - height - m
+            x = screen.maxX - Self.panelWidth  // flush right
+            y = screen.maxY - height - vm
         case .topLeft:
-            x = screen.origin.x + m
-            y = screen.maxY - height - m
+            x = screen.origin.x                // flush left
+            y = screen.maxY - height - vm
         case .custom:
-            return customOrigin ?? NSPoint(x: screen.maxX - Self.panelWidth - m, y: screen.origin.y + bm)
+            return customOrigin ?? NSPoint(x: screen.maxX - Self.panelWidth, y: screen.origin.y + bm)
         }
 
         return NSPoint(x: x, y: y)
