@@ -213,7 +213,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func syncRightSide() {
-        tickerController.isRightSide = overlayWindow.isOnRightSide()
+        let rightSide = overlayWindow.isOnRightSide()
+        if tickerController.isRightSide != rightSide {
+            tickerController.isRightSide = rightSide
+            // Force re-render with current sessions
+            dataProvider.refresh()
+        }
     }
 
     @objc private func startMoveMode() {

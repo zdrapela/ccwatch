@@ -6,7 +6,13 @@ final class TickerController {
     private var lastContentSnapshot: String = ""
     var onLayoutChanged: ((CGFloat) -> Void)?
     var onWorkspaceClicked: ((String) -> Void)?
-    var isRightSide: Bool = true
+    var isRightSide: Bool = true {
+        didSet {
+            if isRightSide != oldValue {
+                lastContentSnapshot = ""  // force re-render
+            }
+        }
+    }
 
     func attach(to view: NSView) {
         containerView = view

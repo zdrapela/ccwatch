@@ -15,6 +15,10 @@ final class SessionDataProvider {
         startPollTimer()
     }
 
+    func refresh() {
+        reload()
+    }
+
     func stop() {
         dirSource?.cancel()
         pollTimer?.cancel()
