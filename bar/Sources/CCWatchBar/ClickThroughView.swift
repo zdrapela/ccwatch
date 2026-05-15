@@ -15,14 +15,14 @@ final class ClickThroughView: NSVisualEffectView {
         // Otherwise, only ClickableLabel instances are interactive
         guard let hit = super.hitTest(point) else { return nil }
 
-        if hit is ClickableLabel {
+        if hit is ClickableLabel || hit is ClickableGroupView {
             return hit
         }
 
-        // Walk up in case the hit is a subview of ClickableLabel (e.g. the cell)
+        // Walk up in case the hit is a subview of a clickable view
         var current: NSView? = hit
         while let parent = current?.superview {
-            if parent is ClickableLabel {
+            if parent is ClickableLabel || parent is ClickableGroupView {
                 return parent
             }
             if parent === self { break }

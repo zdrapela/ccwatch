@@ -66,44 +66,54 @@ final class TickerController {
         var y = totalHeight - 8  // top padding
 
         for (gi, group) in groups.enumerated() {
-            // Group header (clickable — opens workspace in editor)
-            y -= TickerView.groupHeaderHeight
+            // Calculate total group height: header + sessions
+            let groupHeight = TickerView.groupHeaderHeight
+                + CGFloat(group.sessions.count) * TickerView.sessionRowHeight
+
+            // Clickable group container
+            y -= groupHeight
+            let groupView = ClickableGroupView()
+            groupView.frame = NSRect(x: 0, y: y, width: panelWidth, height: groupHeight)
+            let cwd = group.cwd
+            groupView.onClick = { [weak self] in
+                self?.onWorkspaceClicked?(cwd)
+            }
+            container.addSubview(groupView)
+            subviews.append(groupView)
+
+            // Group header label (inside the clickable group)
             let headerAttrs = TickerView.groupHeaderAttributes()
-            let header = ClickableLabel(
+            let header = makeLabel()
+            header.attributedStringValue = NSAttributedString(
                 string: TickerView.projectName(group.cwd),
                 attributes: headerAttrs
             )
-            header.frame = NSRect(x: hPadding, y: y + 4, width: panelWidth - hPadding * 2, height: 16)
+            let headerY = groupHeight - TickerView.groupHeaderHeight
+            header.frame = NSRect(x: hPadding, y: headerY + 4, width: panelWidth - hPadding * 2, height: 16)
             if isRightSide {
                 header.alignment = .right
                 header.lineBreakMode = .byClipping
             }
-            let cwd = group.cwd
-            header.onClick = { [weak self] in
-                self?.onWorkspaceClicked?(cwd)
-            }
-            container.addSubview(header)
-            subviews.append(header)
+            groupView.addSubview(header)
 
             // Sessions in this group
+            var sessionY = headerY
             for session in group.sessions {
-                y -= TickerView.sessionRowHeight
+                sessionY -= TickerView.sessionRowHeight
 
                 // Session line 1: icons + model · cost · ctx
                 let line1 = makeLabel()
                 line1.attributedStringValue = TickerView.sessionLine(session)
-                line1.frame = NSRect(x: hPadding + 8, y: y + 20, width: panelWidth - hPadding * 2 - 8, height: 16)
+                line1.frame = NSRect(x: hPadding + 8, y: sessionY + 20, width: panelWidth - hPadding * 2 - 8, height: 16)
                 if isRightSide { line1.lineBreakMode = .byClipping }
-                container.addSubview(line1)
-                subviews.append(line1)
+                groupView.addSubview(line1)
 
                 // Session line 2: tool/status detail
                 let line2 = makeLabel()
                 line2.attributedStringValue = TickerView.sessionDetailLine(session)
-                line2.frame = NSRect(x: hPadding + 28, y: y + 4, width: panelWidth - hPadding * 2 - 28, height: 14)
+                line2.frame = NSRect(x: hPadding + 28, y: sessionY + 4, width: panelWidth - hPadding * 2 - 28, height: 14)
                 if isRightSide { line2.lineBreakMode = .byClipping }
-                container.addSubview(line2)
-                subviews.append(line2)
+                groupView.addSubview(line2)
             }
 
             // Separator between groups (not after last)

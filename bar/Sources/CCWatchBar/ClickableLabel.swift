@@ -48,13 +48,11 @@ final class ClickableLabel: NSTextField {
     }
 
     override func mouseDown(with event: NSEvent) {
-        // Visual press feedback
         alphaValue = 0.6
     }
 
     override func mouseUp(with event: NSEvent) {
         alphaValue = 1.0
-        // Only fire if mouse is still inside
         let loc = convert(event.locationInWindow, from: nil)
         if bounds.contains(loc) {
             onClick?()
@@ -74,5 +72,51 @@ final class ClickableLabel: NSTextField {
             attrs.removeValue(forKey: .underlineStyle)
         }
         attributedStringValue = NSAttributedString(string: text, attributes: attrs)
+    }
+}
+
+/// A transparent view that covers an entire group area and responds to clicks.
+/// All child labels are added as subviews of this view.
+final class ClickableGroupView: NSView {
+    var onClick: (() -> Void)?
+    private var trackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        NSCursor.pointingHand.set()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        NSCursor.arrow.set()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        alphaValue = 0.6
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        alphaValue = 1.0
+        let loc = convert(event.locationInWindow, from: nil)
+        if bounds.contains(loc) {
+            onClick?()
+        }
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .pointingHand)
     }
 }
